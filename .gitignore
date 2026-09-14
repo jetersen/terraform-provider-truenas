@@ -14,3 +14,5 @@ sbom/
 results/
 .load-test.env
 .superpowers/
+__pycache__/
+*.log
