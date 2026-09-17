@@ -38,8 +38,15 @@ jobs:
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
-          version: latest
+          version: '~> v2'
           args: release --clean
         env:
           GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # SBOMs are attached here, not by GoReleaser's `sboms:` pipe, so they do
+      # not end up in SHA256SUMS (the Terraform Registry rejects that).
+      - name: Generate and attach SBOMs
+        run: scripts/gen-release-sboms.sh "${{ github.ref_name }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
