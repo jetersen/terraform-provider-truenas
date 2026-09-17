@@ -1,4 +1,4 @@
-// Copyright iXsystems, Inc. 2026
+// Copyright TrueNAS 2026
 // SPDX-License-Identifier: MPL-2.0
 
 package system_advanced
@@ -183,7 +183,7 @@ func resourceSchema() schema.Schema {
 			"uploadcrash": schema.BoolAttribute{
 				Optional:      true,
 				Computed:      true,
-				Description:   "Whether crash dumps and telemetry are automatically uploaded to TrueNAS/iXsystems.",
+				Description:   "Whether crash dumps and telemetry are automatically uploaded to TrueNAS.",
 				PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
 			},
 			// Computed-only (server-generated)

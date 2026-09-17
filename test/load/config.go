@@ -1,4 +1,4 @@
-// Copyright iXsystems, Inc. 2026
+// Copyright TrueNAS 2026
 // SPDX-License-Identifier: MPL-2.0
 
 // Package load holds the Terraform end-to-end load tests and their config

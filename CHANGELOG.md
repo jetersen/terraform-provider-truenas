@@ -12,7 +12,7 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   (build/vet/gofmt/lint/unit-test/docs-check/license-header-check on PRs;
   signed release on tags; manual self-hosted acceptance run), `SECURITY.md`,
   `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, and this changelog.
-- SPDX license headers (`MPL-2.0`, iXsystems, Inc.) on all Go source files,
+- SPDX license headers (`MPL-2.0`, TrueNAS) on all Go source files,
   with a `.copywrite.hcl` config and a CI check enforcing them.
 - Supply-chain and governance files: `.github/CODEOWNERS`,
   `.github/dependabot.yml` (Go modules and Actions), issue templates, and a

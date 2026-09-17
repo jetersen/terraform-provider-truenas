@@ -43,4 +43,4 @@ Reads the current TrueNAS system advanced configuration (syslog, console, kernel
 - `sysloglevel` (String) Minimum severity of messages sent to syslog: one of F_EMERG, F_ALERT, F_CRIT, F_ERR, F_WARNING, F_NOTICE, F_INFO.
 - `syslogservers` (List of String) Remote syslog servers messages are forwarded to.
 - `traceback` (Boolean) Whether a Python traceback is displayed on a middleware crash.
-- `uploadcrash` (Boolean) Whether crash dumps and telemetry are automatically uploaded to TrueNAS/iXsystems.
+- `uploadcrash` (Boolean) Whether crash dumps and telemetry are automatically uploaded to TrueNAS.

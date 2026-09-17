@@ -1,4 +1,4 @@
-// Copyright iXsystems, Inc. 2026
+// Copyright TrueNAS 2026
 // SPDX-License-Identifier: MPL-2.0
 
 // Command token_probe tests whether a cached auth.generate_token token

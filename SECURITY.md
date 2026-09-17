@@ -21,8 +21,8 @@ disclosure.
 
 This policy covers the Terraform provider in this repository — the code that
 runs on the operator's machine and connects to TrueNAS. Vulnerabilities
-in TrueNAS itself (the middleware/server) should be reported to
-iXsystems through the TrueNAS security process; where such an issue affects
+in TrueNAS itself (the middleware/server) should be reported through the
+TrueNAS security process; where such an issue affects
 how this provider should behave, note that in your report.
 
 ## Handling of secrets
