@@ -44,7 +44,11 @@ if [ "$DO_PUSH" -eq 1 ] && ! git remote get-url "$PUBLIC_REMOTE" >/dev/null 2>&1
 fi
 
 START_BRANCH="$(git branch --show-current)"
-cleanup() { git checkout -q "$START_BRANCH" 2>/dev/null || git checkout -q "$SOURCE_BRANCH" 2>/dev/null || true
+# Force the checkout: building the orphan leaves the excluded files in the
+# working tree as untracked, which would make a plain `git checkout` refuse to
+# switch back ("untracked files would be overwritten"). -f restores them from
+# the target branch (same content) so cleanup always lands back on the start.
+cleanup() { git checkout -qf "$START_BRANCH" 2>/dev/null || git checkout -qf "$SOURCE_BRANCH" 2>/dev/null || true
             git branch -D "$TMP_BRANCH" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 
