@@ -46,7 +46,10 @@ jobs:
       # SBOMs are attached here, not by GoReleaser's `sboms:` pipe, so they do
       # not end up in SHA256SUMS (the Terraform Registry rejects that).
       - name: Generate and attach SBOMs
-        run: scripts/gen-release-sboms.sh "${{ github.ref_name }}"
+        # Pass the tag through the environment, never interpolated directly into
+        # the run script, so a crafted tag name cannot inject shell commands.
         env:
+          TAG: ${{ github.ref_name }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
+        run: scripts/gen-release-sboms.sh "$TAG"
