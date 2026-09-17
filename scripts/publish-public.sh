@@ -27,6 +27,7 @@ EXCLUDE=(
   MANUAL-TESTS.md
   scripts/publish-public.sh
   scripts/scrub-public-testing.py
+  docs-dev/registry-publish-runbook.md
 )
 
 # --- guards ---------------------------------------------------------------

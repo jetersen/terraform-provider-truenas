@@ -16,3 +16,4 @@ results/
 .superpowers/
 __pycache__/
 *.log
+original-git-log
