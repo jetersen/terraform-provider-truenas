@@ -74,10 +74,17 @@ section.
 
 ## Initial setup
 
-### 1. Build and install the provider
+### 1. Install the provider
 
-The provider is not published to the Terraform Registry; install it into your
-local plugin directory:
+The provider is published to the Terraform Registry as
+[`truenas/truenas`](https://registry.terraform.io/providers/truenas/truenas).
+Declare it (see [step 3](#3-configure-the-provider)) and `terraform init`
+downloads and signature-verifies it — no build step needed.
+
+#### Build from source (optional)
+
+For contributors, or an air-gapped install, build and install into your local
+plugin directory instead:
 
 ```sh
 git clone https://github.com/truenas/terraform-provider-truenas
@@ -86,10 +93,13 @@ make install
 ```
 
 This builds the binary and copies it to
-`~/.terraform.d/plugins/registry.terraform.io/truenas/truenas/0.1.0/<os>_<arch>/`.
+`~/.terraform.d/plugins/registry.terraform.io/truenas/truenas/<version>/<os>_<arch>/`
+(default version `0.1.0`; override with `make install VERSION=1.0.0`).
+Terraform prefers this local copy over the Registry, so pin a matching
+`version` in `required_providers`.
 
-Alternatively, for a development workflow without reinstalling on every build,
-use a [dev override](https://developer.hashicorp.com/terraform/cli/config/config-file#development-overrides)
+For provider development without reinstalling on every build, use a
+[dev override](https://developer.hashicorp.com/terraform/cli/config/config-file#development-overrides)
 in `~/.terraformrc`:
 
 ```hcl
@@ -126,7 +136,7 @@ terraform {
   required_providers {
     truenas = {
       source  = "truenas/truenas"
-      version = "0.1.0"
+      version = "~> 1.0"
     }
   }
 }
