@@ -132,8 +132,9 @@ cZPGzMY0VWLUnNIMsjf0z9yNrGnycg==
 
 ## Other owner-gated items (bundle with the above)
 
-- **Create the `@truenas/terraform-provider-maintainers` team** and add the
-  provider maintainers; `.github/CODEOWNERS` already points at it.
+- ~~Create the `@truenas/terraform-provider-maintainers` team~~ — NOT needed.
+  `.github/CODEOWNERS` was repointed to the maintainer contact address
+  (`terraform-provider-truenas@truenas.com`), so no GitHub team is required.
 - **GitHub Support `gc` request** for the repo: earlier pushes left closed-PR
   `refs/pull/*` that still descend from pre-clean history. `main` is clean, but
   ask GitHub Support to garbage-collect the repo (or accept background GC)
