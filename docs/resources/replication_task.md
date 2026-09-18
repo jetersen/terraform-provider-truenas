@@ -57,6 +57,11 @@ resource "truenas_replication_task" "local_backup" {
 - `lifetime_value` (Number) Retention lifetime value. Unset (0) when retention_policy is not CUSTOM.
 - `name_regex` (String) Regular expression matching snapshot names to replicate. Mutually exclusive with naming_schema/also_include_naming_schema.
 - `naming_schema` (List of String) Naming schemas of snapshots to replicate. Mutually exclusive with name_regex.
+- `netcat_active_side` (String) For transport = "SSH+NETCAT", which side actively opens the netcat data connection: LOCAL or REMOTE. Required for SSH+NETCAT; must be unset for other transports.
+- `netcat_active_side_listen_address` (String) For transport = "SSH+NETCAT", the IP address the active side listens on. Only valid for SSH+NETCAT.
+- `netcat_active_side_port_max` (Number) For transport = "SSH+NETCAT", the high end of the port range the active side may listen on (1-65535). Only valid for SSH+NETCAT.
+- `netcat_active_side_port_min` (Number) For transport = "SSH+NETCAT", the low end of the port range the active side may listen on (1-65535). Only valid for SSH+NETCAT.
+- `netcat_passive_side_connect_address` (String) For transport = "SSH+NETCAT", the IP address the passive side connects to. Only valid for SSH+NETCAT.
 - `periodic_snapshot_tasks` (List of Number) IDs of periodic snapshot tasks that feed this replication task.
 - `properties` (Boolean) Include dataset properties in the replication stream.
 - `readonly` (String) SET, REQUIRE, or IGNORE.
@@ -66,7 +71,7 @@ resource "truenas_replication_task" "local_backup" {
 - `speed_limit` (Number) Limits the speed of the SSH stream, in bytes per second. Available only for transport = "SSH"; must be unset for transport = "LOCAL".
 - `ssh_credentials` (Number) Numeric id of a truenas_keychain_ssh_connection (keychaincredential of type SSH_CREDENTIALS) to replicate over. Required when transport = "SSH"; must be unset (0) for transport = "LOCAL".
 - `sudo` (Boolean) Use sudo (expected to be passwordless on the remote system) to run zfs commands over SSH. Only meaningful for transport = "SSH".
-- `transport` (String) LOCAL (default) replicates within the same system; SSH replicates to/from a remote system over a truenas_keychain_ssh_connection credential ("ssh_credentials"). SSH+NETCAT is accepted by the underlying API but not exposed here. Changing this forces a new resource.
+- `transport` (String) LOCAL (default) replicates within the same system; SSH replicates to/from a remote system over a truenas_keychain_ssh_connection credential ("ssh_credentials"); SSH+NETCAT authenticates over SSH but transfers data over an unencrypted netcat connection for higher throughput on trusted networks (configure the netcat_* attributes). Changing this forces a new resource.
 
 ### Read-Only
 

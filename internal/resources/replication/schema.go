@@ -45,10 +45,11 @@ func resourceSchema() schema.Schema {
 				Optional: true,
 				Computed: true,
 				Description: "LOCAL (default) replicates within the same system; SSH replicates to/from a " +
-					"remote system over a truenas_keychain_ssh_connection credential (\"ssh_credentials\"). " +
-					"SSH+NETCAT is accepted by the underlying API but not exposed here. Changing this forces a " +
-					"new resource.",
-				Validators: []validator.String{stringvalidator.OneOf("LOCAL", "SSH")},
+					"remote system over a truenas_keychain_ssh_connection credential (\"ssh_credentials\"); " +
+					"SSH+NETCAT authenticates over SSH but transfers data over an unencrypted netcat " +
+					"connection for higher throughput on trusted networks (configure the netcat_* attributes). " +
+					"Changing this forces a new resource.",
+				Validators: []validator.String{stringvalidator.OneOf("LOCAL", "SSH", "SSH+NETCAT")},
 				Default:    stringdefault.StaticString("LOCAL"),
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
@@ -84,6 +85,34 @@ func resourceSchema() schema.Schema {
 				Description: "Limits the speed of the SSH stream, in bytes per second. Available only for " +
 					"transport = \"SSH\"; must be unset for transport = \"LOCAL\".",
 				Validators: []validator.Int64{int64validator.AtLeast(1)},
+			},
+			"netcat_active_side": schema.StringAttribute{
+				Optional: true,
+				Description: "For transport = \"SSH+NETCAT\", which side actively opens the netcat data " +
+					"connection: LOCAL or REMOTE. Required for SSH+NETCAT; must be unset for other transports.",
+				Validators: []validator.String{stringvalidator.OneOf("LOCAL", "REMOTE")},
+			},
+			"netcat_active_side_listen_address": schema.StringAttribute{
+				Optional: true,
+				Description: "For transport = \"SSH+NETCAT\", the IP address the active side listens on. " +
+					"Only valid for SSH+NETCAT.",
+			},
+			"netcat_active_side_port_min": schema.Int64Attribute{
+				Optional: true,
+				Description: "For transport = \"SSH+NETCAT\", the low end of the port range the active side " +
+					"may listen on (1-65535). Only valid for SSH+NETCAT.",
+				Validators: []validator.Int64{int64validator.Between(1, 65535)},
+			},
+			"netcat_active_side_port_max": schema.Int64Attribute{
+				Optional: true,
+				Description: "For transport = \"SSH+NETCAT\", the high end of the port range the active side " +
+					"may listen on (1-65535). Only valid for SSH+NETCAT.",
+				Validators: []validator.Int64{int64validator.Between(1, 65535)},
+			},
+			"netcat_passive_side_connect_address": schema.StringAttribute{
+				Optional: true,
+				Description: "For transport = \"SSH+NETCAT\", the IP address the passive side connects to. " +
+					"Only valid for SSH+NETCAT.",
 			},
 			"source_datasets": schema.ListAttribute{
 				Required:    true,

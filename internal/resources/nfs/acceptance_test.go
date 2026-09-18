@@ -55,6 +55,47 @@ func TestAccNFSShare_basic(t *testing.T) {
 	})
 }
 
+// TestAccNFSShare_mapall exercises the mapall_user / mapall_group attributes:
+// creates a share mapping all clients to root:root, verifies the values round
+// trip, and imports.
+func TestAccNFSShare_mapall(t *testing.T) {
+	datasetName := fmt.Sprintf("%s/%s", acctest.TestPool(), acctest.RandName("tf-acc-nfs-mapall"))
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { acctest.PreCheck(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckNFSShareDestroyed(datasetName),
+		Steps: []resource.TestStep{
+			{
+				Config: acctest.ProviderConfig() + testAccNFSShareMapallConfig(datasetName, "root", "root"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("truenas_nfs_share.test", "mapall_user", "root"),
+					resource.TestCheckResourceAttr("truenas_nfs_share.test", "mapall_group", "root"),
+				),
+			},
+			{
+				ResourceName:      "truenas_nfs_share.test",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
+func testAccNFSShareMapallConfig(datasetName, mapallUser, mapallGroup string) string {
+	return fmt.Sprintf(`
+resource "truenas_dataset" "fixture" {
+  name = %q
+}
+
+resource "truenas_nfs_share" "test" {
+  path         = truenas_dataset.fixture.mountpoint
+  mapall_user  = %q
+  mapall_group = %q
+}
+`, datasetName, mapallUser, mapallGroup)
+}
+
 func testAccNFSShareConfig(datasetName, comment string, networks []string) string {
 	networksHCL := ""
 	for i, n := range networks {

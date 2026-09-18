@@ -32,32 +32,38 @@ type ScheduleModel struct {
 
 // ReplicationModel is the Terraform state/plan model for truenas_replication_task.
 type ReplicationModel struct {
-	ID                      types.Int64  `tfsdk:"id"`
-	Name                    types.String `tfsdk:"name"`
-	Direction               types.String `tfsdk:"direction"`       // PUSH, PULL
-	Transport               types.String `tfsdk:"transport"`       // SSH, SSH+NETCAT, LOCAL
-	SSHCredentials          types.Int64  `tfsdk:"ssh_credentials"` // keychain credential id; 0 = unset (LOCAL)
-	Sudo                    types.Bool   `tfsdk:"sudo"`
-	Compression             types.String `tfsdk:"compression"`     // LZ4, PIGZ, PLZIP; null unless transport = SSH
-	SpeedLimit              types.Int64  `tfsdk:"speed_limit"`     // bytes/sec; null unless transport = SSH
-	SourceDatasets          types.List   `tfsdk:"source_datasets"` // List[String], Required
-	TargetDataset           types.String `tfsdk:"target_dataset"`
-	Recursive               types.Bool   `tfsdk:"recursive"`
-	Exclude                 types.List   `tfsdk:"exclude"`
-	Properties              types.Bool   `tfsdk:"properties"`
-	Replicate               types.Bool   `tfsdk:"replicate"`
-	PeriodicSnapshotTasks   types.List   `tfsdk:"periodic_snapshot_tasks"` // List[Int64]
-	NamingSchema            types.List   `tfsdk:"naming_schema"`           // List[String]
-	AlsoIncludeNamingSchema types.List   `tfsdk:"also_include_naming_schema"`
-	NameRegex               types.String `tfsdk:"name_regex"` // "" = unset -> null
-	Auto                    types.Bool   `tfsdk:"auto"`
-	Schedule                types.Object `tfsdk:"schedule"`         // optional nested; null when unset
-	RetentionPolicy         types.String `tfsdk:"retention_policy"` // SOURCE, CUSTOM, NONE
-	LifetimeValue           types.Int64  `tfsdk:"lifetime_value"`   // 0 = unset -> null
-	LifetimeUnit            types.String `tfsdk:"lifetime_unit"`    // "" = unset -> null
-	Readonly                types.String `tfsdk:"readonly"`         // SET, REQUIRE, IGNORE
-	Enabled                 types.Bool   `tfsdk:"enabled"`
-	Retries                 types.Int64  `tfsdk:"retries"`
+	ID             types.Int64  `tfsdk:"id"`
+	Name           types.String `tfsdk:"name"`
+	Direction      types.String `tfsdk:"direction"`       // PUSH, PULL
+	Transport      types.String `tfsdk:"transport"`       // SSH, SSH+NETCAT, LOCAL
+	SSHCredentials types.Int64  `tfsdk:"ssh_credentials"` // keychain credential id; 0 = unset (LOCAL)
+	Sudo           types.Bool   `tfsdk:"sudo"`
+	Compression    types.String `tfsdk:"compression"` // LZ4, PIGZ, PLZIP; null unless transport = SSH
+	SpeedLimit     types.Int64  `tfsdk:"speed_limit"` // bytes/sec; null unless transport = SSH
+	// netcat_* fields apply only to transport = SSH+NETCAT; null otherwise.
+	NetcatActiveSide                types.String `tfsdk:"netcat_active_side"`                  // LOCAL, REMOTE
+	NetcatActiveSideListenAddress   types.String `tfsdk:"netcat_active_side_listen_address"`   // IP the active side listens on
+	NetcatActiveSidePortMin         types.Int64  `tfsdk:"netcat_active_side_port_min"`         // 1-65535
+	NetcatActiveSidePortMax         types.Int64  `tfsdk:"netcat_active_side_port_max"`         // 1-65535
+	NetcatPassiveSideConnectAddress types.String `tfsdk:"netcat_passive_side_connect_address"` // IP the passive side connects to
+	SourceDatasets                  types.List   `tfsdk:"source_datasets"`                     // List[String], Required
+	TargetDataset                   types.String `tfsdk:"target_dataset"`
+	Recursive                       types.Bool   `tfsdk:"recursive"`
+	Exclude                         types.List   `tfsdk:"exclude"`
+	Properties                      types.Bool   `tfsdk:"properties"`
+	Replicate                       types.Bool   `tfsdk:"replicate"`
+	PeriodicSnapshotTasks           types.List   `tfsdk:"periodic_snapshot_tasks"` // List[Int64]
+	NamingSchema                    types.List   `tfsdk:"naming_schema"`           // List[String]
+	AlsoIncludeNamingSchema         types.List   `tfsdk:"also_include_naming_schema"`
+	NameRegex                       types.String `tfsdk:"name_regex"` // "" = unset -> null
+	Auto                            types.Bool   `tfsdk:"auto"`
+	Schedule                        types.Object `tfsdk:"schedule"`         // optional nested; null when unset
+	RetentionPolicy                 types.String `tfsdk:"retention_policy"` // SOURCE, CUSTOM, NONE
+	LifetimeValue                   types.Int64  `tfsdk:"lifetime_value"`   // 0 = unset -> null
+	LifetimeUnit                    types.String `tfsdk:"lifetime_unit"`    // "" = unset -> null
+	Readonly                        types.String `tfsdk:"readonly"`         // SET, REQUIRE, IGNORE
+	Enabled                         types.Bool   `tfsdk:"enabled"`
+	Retries                         types.Int64  `tfsdk:"retries"`
 }
 
 // embeddedTask is the shape of an embedded periodic snapshot task object
@@ -68,26 +74,31 @@ type embeddedTask struct {
 
 // replicationAPI is the JSON wire format for a TrueNAS replication task object.
 type replicationAPI struct {
-	ID                      int64          `json:"id"`
-	Name                    string         `json:"name"`
-	Direction               string         `json:"direction"`
-	Transport               string         `json:"transport"`
-	SSHCredentials          any            `json:"ssh_credentials"` // null, int, or embedded object {id: int}
-	Sudo                    bool           `json:"sudo"`
-	Compression             *string        `json:"compression"`
-	SpeedLimit              *int64         `json:"speed_limit"`
-	SourceDatasets          []string       `json:"source_datasets"`
-	TargetDataset           string         `json:"target_dataset"`
-	Recursive               bool           `json:"recursive"`
-	Exclude                 []string       `json:"exclude"`
-	Properties              bool           `json:"properties"`
-	Replicate               bool           `json:"replicate"`
-	PeriodicSnapshotTasks   []embeddedTask `json:"periodic_snapshot_tasks"` // query embeds task objects
-	NamingSchema            []string       `json:"naming_schema"`
-	AlsoIncludeNamingSchema []string       `json:"also_include_naming_schema"`
-	NameRegex               *string        `json:"name_regex"`
-	Auto                    bool           `json:"auto"`
-	Schedule                *struct {
+	ID                              int64          `json:"id"`
+	Name                            string         `json:"name"`
+	Direction                       string         `json:"direction"`
+	Transport                       string         `json:"transport"`
+	SSHCredentials                  any            `json:"ssh_credentials"` // null, int, or embedded object {id: int}
+	Sudo                            bool           `json:"sudo"`
+	Compression                     *string        `json:"compression"`
+	SpeedLimit                      *int64         `json:"speed_limit"`
+	NetcatActiveSide                *string        `json:"netcat_active_side"`
+	NetcatActiveSideListenAddress   *string        `json:"netcat_active_side_listen_address"`
+	NetcatActiveSidePortMin         *int64         `json:"netcat_active_side_port_min"`
+	NetcatActiveSidePortMax         *int64         `json:"netcat_active_side_port_max"`
+	NetcatPassiveSideConnectAddress *string        `json:"netcat_passive_side_connect_address"`
+	SourceDatasets                  []string       `json:"source_datasets"`
+	TargetDataset                   string         `json:"target_dataset"`
+	Recursive                       bool           `json:"recursive"`
+	Exclude                         []string       `json:"exclude"`
+	Properties                      bool           `json:"properties"`
+	Replicate                       bool           `json:"replicate"`
+	PeriodicSnapshotTasks           []embeddedTask `json:"periodic_snapshot_tasks"` // query embeds task objects
+	NamingSchema                    []string       `json:"naming_schema"`
+	AlsoIncludeNamingSchema         []string       `json:"also_include_naming_schema"`
+	NameRegex                       *string        `json:"name_regex"`
+	Auto                            bool           `json:"auto"`
+	Schedule                        *struct {
 		Minute string `json:"minute"`
 		Hour   string `json:"hour"`
 		Dom    string `json:"dom"`
@@ -132,6 +143,22 @@ func sshCredentialsID(v any) int64 {
 	}
 }
 
+// stringPtrToValue maps a nullable API string to a types.String (null when nil).
+func stringPtrToValue(p *string) types.String {
+	if p == nil {
+		return types.StringNull()
+	}
+	return types.StringValue(*p)
+}
+
+// int64PtrToValue maps a nullable API integer to a types.Int64 (null when nil).
+func int64PtrToValue(p *int64) types.Int64 {
+	if p == nil {
+		return types.Int64Null()
+	}
+	return types.Int64Value(*p)
+}
+
 // periodicSnapshotTaskIDs extracts the IDs from a list of embedded task
 // objects, as returned in replication query/get_instance responses.
 func periodicSnapshotTaskIDs(tasks []embeddedTask) []int64 {
@@ -164,6 +191,12 @@ func responseToModel(ctx context.Context, api *replicationAPI, m *ReplicationMod
 	} else {
 		m.SpeedLimit = types.Int64Null()
 	}
+
+	m.NetcatActiveSide = stringPtrToValue(api.NetcatActiveSide)
+	m.NetcatActiveSideListenAddress = stringPtrToValue(api.NetcatActiveSideListenAddress)
+	m.NetcatActiveSidePortMin = int64PtrToValue(api.NetcatActiveSidePortMin)
+	m.NetcatActiveSidePortMax = int64PtrToValue(api.NetcatActiveSidePortMax)
+	m.NetcatPassiveSideConnectAddress = stringPtrToValue(api.NetcatPassiveSideConnectAddress)
 
 	sourceDatasets := api.SourceDatasets
 	if sourceDatasets == nil {
@@ -337,6 +370,35 @@ func (m *ReplicationModel) apiPayload(ctx context.Context) (map[string]any, diag
 		p["speed_limit"] = m.SpeedLimit.ValueInt64()
 	} else {
 		p["speed_limit"] = nil
+	}
+
+	// netcat_* fields: SSH+NETCAT-only, nullable on the wire. Always send the
+	// key (value or nil) so switching transport away from SSH+NETCAT clears a
+	// previously-set value, matching the compression/speed_limit pattern above.
+	if !m.NetcatActiveSide.IsNull() && !m.NetcatActiveSide.IsUnknown() {
+		p["netcat_active_side"] = m.NetcatActiveSide.ValueString()
+	} else {
+		p["netcat_active_side"] = nil
+	}
+	if !m.NetcatActiveSideListenAddress.IsNull() && !m.NetcatActiveSideListenAddress.IsUnknown() {
+		p["netcat_active_side_listen_address"] = m.NetcatActiveSideListenAddress.ValueString()
+	} else {
+		p["netcat_active_side_listen_address"] = nil
+	}
+	if !m.NetcatActiveSidePortMin.IsNull() && !m.NetcatActiveSidePortMin.IsUnknown() {
+		p["netcat_active_side_port_min"] = m.NetcatActiveSidePortMin.ValueInt64()
+	} else {
+		p["netcat_active_side_port_min"] = nil
+	}
+	if !m.NetcatActiveSidePortMax.IsNull() && !m.NetcatActiveSidePortMax.IsUnknown() {
+		p["netcat_active_side_port_max"] = m.NetcatActiveSidePortMax.ValueInt64()
+	} else {
+		p["netcat_active_side_port_max"] = nil
+	}
+	if !m.NetcatPassiveSideConnectAddress.IsNull() && !m.NetcatPassiveSideConnectAddress.IsUnknown() {
+		p["netcat_passive_side_connect_address"] = m.NetcatPassiveSideConnectAddress.ValueString()
+	} else {
+		p["netcat_passive_side_connect_address"] = nil
 	}
 
 	// name_regex: send only when non-empty. When set, naming_schema and

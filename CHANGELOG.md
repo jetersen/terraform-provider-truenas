@@ -7,6 +7,14 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [Unreleased]
 
 ### Added
+- `truenas_replication_task`: SSH+NETCAT transport. `transport` now accepts
+  `"SSH+NETCAT"` (unencrypted data channel over a netcat connection, authenticated
+  over SSH) alongside the new `netcat_active_side`,
+  `netcat_active_side_listen_address`, `netcat_active_side_port_min`,
+  `netcat_active_side_port_max`, and `netcat_passive_side_connect_address`
+  attributes.
+- `truenas_nfs_share`: `mapall_user` and `mapall_group` attributes, mapping all
+  NFS clients to a given user/group (mutually exclusive with `maproot_*`).
 - Release, CI, and governance scaffolding: MPL-2.0 `LICENSE`, GoReleaser
   release pipeline and Terraform Registry manifest, GitHub Actions
   (build/vet/gofmt/lint/unit-test/docs-check/license-header-check on PRs;

@@ -37,7 +37,9 @@ output "share_id" {
 - `comment` (String)
 - `enabled` (Boolean)
 - `hosts` (List of String) List of allowed hosts (IP or hostname).
-- `maproot_group` (String) Map root group to this group.
+- `mapall_group` (String) Map all client groups to this group. Mutually exclusive with maproot_group.
+- `mapall_user` (String) Map all client users to this user. Mutually exclusive with maproot_user.
+- `maproot_group` (String) Map root group to this group. Mutually exclusive with mapall_group.
 - `maproot_user` (String) Map root user to this user.
 - `networks` (List of String) List of allowed networks in CIDR notation.
 - `ro` (Boolean) Export as read-only.

@@ -59,7 +59,17 @@ func resourceSchema() schema.Schema {
 			"maproot_group": schema.StringAttribute{
 				Optional:    true,
 				Computed:    true,
-				Description: "Map root group to this group.",
+				Description: "Map root group to this group. Mutually exclusive with mapall_group.",
+			},
+			"mapall_user": schema.StringAttribute{
+				Optional:    true,
+				Computed:    true,
+				Description: "Map all client users to this user. Mutually exclusive with maproot_user.",
+			},
+			"mapall_group": schema.StringAttribute{
+				Optional:    true,
+				Computed:    true,
+				Description: "Map all client groups to this group. Mutually exclusive with maproot_group.",
 			},
 		},
 	}

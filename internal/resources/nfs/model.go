@@ -19,6 +19,8 @@ type NFSShareModel struct {
 	Hosts    types.List   `tfsdk:"hosts"`    // list of hostnames/IPs
 	MapRoot  types.String `tfsdk:"maproot_user"`
 	MapGroup types.String `tfsdk:"maproot_group"`
+	MapAll   types.String `tfsdk:"mapall_user"`
+	MapAllGr types.String `tfsdk:"mapall_group"`
 }
 
 type apiResponse struct {
@@ -31,6 +33,8 @@ type apiResponse struct {
 	Hosts    []string `json:"hosts"`
 	MapRoot  string   `json:"maproot_user"`
 	MapGroup string   `json:"maproot_group"`
+	MapAll   string   `json:"mapall_user"`
+	MapAllGr string   `json:"mapall_group"`
 }
 
 func (m *NFSShareModel) apiPayload() map[string]any {
@@ -49,6 +53,12 @@ func (m *NFSShareModel) apiPayload() map[string]any {
 	}
 	if !m.MapGroup.IsNull() && !m.MapGroup.IsUnknown() {
 		p["maproot_group"] = m.MapGroup.ValueString()
+	}
+	if !m.MapAll.IsNull() && !m.MapAll.IsUnknown() {
+		p["mapall_user"] = m.MapAll.ValueString()
+	}
+	if !m.MapAllGr.IsNull() && !m.MapAllGr.IsUnknown() {
+		p["mapall_group"] = m.MapAllGr.ValueString()
 	}
 	if !m.Networks.IsNull() && !m.Networks.IsUnknown() {
 		var nets []string

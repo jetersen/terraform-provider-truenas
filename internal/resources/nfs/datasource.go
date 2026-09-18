@@ -38,6 +38,8 @@ func (d *NFSShareDataSource) Schema(_ context.Context, _ datasource.SchemaReques
 			"hosts":         dschema.ListAttribute{Computed: true, ElementType: types.StringType},
 			"maproot_user":  dschema.StringAttribute{Computed: true},
 			"maproot_group": dschema.StringAttribute{Computed: true},
+			"mapall_user":   dschema.StringAttribute{Computed: true},
+			"mapall_group":  dschema.StringAttribute{Computed: true},
 		},
 	}
 }

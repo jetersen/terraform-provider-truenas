@@ -195,6 +195,8 @@ func (r *NFSShareResource) responseToModel(ctx context.Context, api *apiResponse
 	m.ReadOnly = types.BoolValue(api.ReadOnly)
 	m.MapRoot = types.StringValue(api.MapRoot)
 	m.MapGroup = types.StringValue(api.MapGroup)
+	m.MapAll = types.StringValue(api.MapAll)
+	m.MapAllGr = types.StringValue(api.MapAllGr)
 
 	networks, d := types.ListValueFrom(ctx, types.StringType, api.Networks)
 	diags.Append(d...)

@@ -320,6 +320,125 @@ func TestAccReplication_RemoteSSH(t *testing.T) {
 	})
 }
 
+// TestAccReplication_SSHNetcat exercises transport = "SSH+NETCAT" and the
+// netcat_* attributes. It reuses the same SSH keypair/connection/user
+// scaffolding as TestAccReplication_RemoteSSH (SSH+NETCAT authenticates over
+// SSH exactly like SSH does) but sets transport = "SSH+NETCAT" plus the
+// netcat active/passive fields. It verifies the create/read/import contract
+// only — not a live replication.run: the netcat data path over loopback is
+// not a reliable round trip in this single-box fixture, whereas the create +
+// read-back proves the provider maps the new attributes to and from the API.
+func TestAccReplication_SSHNetcat(t *testing.T) {
+	acctest.PreCheck(t)
+
+	host := acctest.EndpointHost()
+	username := acctest.RandName("tf-acc-replnc-user")
+	homeDS := acctest.RandName("tf-acc-replnc-home")
+	keypairName := acctest.RandName("tf-acc-replnc-keypair")
+	connName := acctest.RandName("tf-acc-replnc-conn")
+	privateKeyPEM, publicKeyLine := genEd25519OpenSSHKeyPair(t, keypairName)
+	publicKeyLine = strings.TrimSpace(publicKeyLine)
+	hostKey := scanRemoteHostKey(t, host)
+
+	name := acctest.RandName("tf-acc-repl-nc")
+	srcDS := acctest.RandName("tf-acc-repl-nc-src")
+	dstDS := acctest.RandName("tf-acc-repl-nc-dst")
+
+	resource.Test(t, resource.TestCase{
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckReplicationSSHDestroyed(name, username),
+		Steps: []resource.TestStep{
+			{
+				Config: acctest.ProviderConfig() + testAccReplicationNetcatConfig(
+					username, homeDS, publicKeyLine, keypairName, privateKeyPEM, connName, host, hostKey, srcDS, dstDS, name),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet("truenas_replication_task.test", "id"),
+					resource.TestCheckResourceAttr("truenas_replication_task.test", "transport", "SSH+NETCAT"),
+					resource.TestCheckResourceAttr("truenas_replication_task.test", "netcat_active_side", "LOCAL"),
+					resource.TestCheckResourceAttr("truenas_replication_task.test", "netcat_active_side_listen_address", "127.0.0.1"),
+					resource.TestCheckResourceAttr("truenas_replication_task.test", "netcat_active_side_port_min", "20000"),
+					resource.TestCheckResourceAttr("truenas_replication_task.test", "netcat_active_side_port_max", "20100"),
+					resource.TestCheckResourceAttr("truenas_replication_task.test", "netcat_passive_side_connect_address", "127.0.0.1"),
+					resource.TestCheckResourceAttrPair(
+						"truenas_replication_task.test", "ssh_credentials",
+						"truenas_keychain_ssh_connection.test", "id"),
+				),
+			},
+			{
+				ResourceName:      "truenas_replication_task.test",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
+func testAccReplicationNetcatConfig(username, homeDS, publicKeyLine, keypairName, privateKeyPEM, connName, host, hostKey, srcDS, dstDS, name string) string {
+	pool := acctest.TestPool()
+	return fmt.Sprintf(`
+resource "truenas_dataset" "src" {
+  name = %[1]q
+}
+
+resource "truenas_dataset" "dst" {
+  name = %[2]q
+}
+
+resource "truenas_dataset" "sshuser_home" {
+  name = %[3]q
+}
+
+resource "truenas_user" "sshuser" {
+  username               = %[4]q
+  full_name              = "TF Acceptance NETCAT Replication User"
+  password_disabled      = true
+  home                   = "/mnt/${truenas_dataset.sshuser_home.name}"
+  shell                  = "/usr/bin/bash"
+  group_create           = true
+  sshpubkey              = %[5]q
+  sudo_commands_nopasswd = ["ALL"]
+}
+
+resource "truenas_keychain_ssh_keypair" "test" {
+  name        = %[6]q
+  private_key = %[7]q
+}
+
+resource "truenas_keychain_ssh_connection" "test" {
+  name            = %[8]q
+  host            = %[9]q
+  port            = 22
+  username        = truenas_user.sshuser.username
+  private_key_id  = truenas_keychain_ssh_keypair.test.id
+  remote_host_key = %[10]q
+  connect_timeout = 10
+}
+
+resource "truenas_replication_task" "test" {
+  name             = %[11]q
+  direction        = "PUSH"
+  transport        = "SSH+NETCAT"
+  ssh_credentials  = truenas_keychain_ssh_connection.test.id
+  sudo             = true
+
+  netcat_active_side                  = "LOCAL"
+  netcat_active_side_listen_address   = "127.0.0.1"
+  netcat_active_side_port_min         = 20000
+  netcat_active_side_port_max         = 20100
+  netcat_passive_side_connect_address = "127.0.0.1"
+
+  source_datasets  = [truenas_dataset.src.name]
+  target_dataset   = truenas_dataset.dst.name
+  recursive        = false
+  auto             = false
+  retention_policy = "SOURCE"
+  readonly         = "IGNORE"
+
+  also_include_naming_schema = ["auto-%%Y-%%m-%%d_%%H-%%M"]
+}
+`, pool+"/"+srcDS, pool+"/"+dstDS, pool+"/"+homeDS, username, publicKeyLine, keypairName, privateKeyPEM, connName, host, hostKey, name)
+}
+
 func testAccReplicationSSHConfig(username, homeDS, publicKeyLine, keypairName, privateKeyPEM, connName, host, hostKey, srcDS, dstDS, name string, enabled bool) string {
 	pool := acctest.TestPool()
 	return fmt.Sprintf(`

@@ -106,16 +106,52 @@ func transportSSHCredentialsMismatch(config *ReplicationModel) string {
 	}
 	hasCred := sshCredentialsSet(config)
 	switch transport {
-	case "SSH":
+	case "SSH", "SSH+NETCAT":
 		if !hasCred {
-			return "transport = \"SSH\" requires ssh_credentials to be set (the id of a " +
-				"truenas_keychain_ssh_connection credential)."
+			return fmt.Sprintf("transport = %q requires ssh_credentials to be set (the id of a "+
+				"truenas_keychain_ssh_connection credential).", transport)
 		}
 	case "LOCAL":
 		if hasCred {
 			return "transport = \"LOCAL\" (the default) does not accept ssh_credentials; either unset " +
-				"ssh_credentials or set transport = \"SSH\"."
+				"ssh_credentials or set transport = \"SSH\" or \"SSH+NETCAT\"."
 		}
+	}
+	return ""
+}
+
+// netcatSet reports whether any netcat_* attribute carries a known value.
+func netcatSet(config *ReplicationModel) bool {
+	return (!config.NetcatActiveSide.IsNull() && !config.NetcatActiveSide.IsUnknown()) ||
+		(!config.NetcatActiveSideListenAddress.IsNull() && !config.NetcatActiveSideListenAddress.IsUnknown()) ||
+		(!config.NetcatActiveSidePortMin.IsNull() && !config.NetcatActiveSidePortMin.IsUnknown()) ||
+		(!config.NetcatActiveSidePortMax.IsNull() && !config.NetcatActiveSidePortMax.IsUnknown()) ||
+		(!config.NetcatPassiveSideConnectAddress.IsNull() && !config.NetcatPassiveSideConnectAddress.IsUnknown())
+}
+
+// netcatFieldsMismatch enforces the SSH+NETCAT pairing: the netcat_* fields
+// are valid only for transport = "SSH+NETCAT", and that transport requires
+// netcat_active_side. Returns "" when consistent (including when transport
+// isn't knowable yet).
+func netcatFieldsMismatch(config *ReplicationModel) string {
+	transport := transportOrDefault(config)
+	if transport == "" {
+		return ""
+	}
+	if transport != "SSH+NETCAT" {
+		if netcatSet(config) {
+			return "the netcat_active_side, netcat_active_side_listen_address, " +
+				"netcat_active_side_port_min, netcat_active_side_port_max, and " +
+				"netcat_passive_side_connect_address attributes are only valid for transport = \"SSH+NETCAT\"."
+		}
+		return ""
+	}
+	// transport == SSH+NETCAT: netcat_active_side is required (unless not yet knowable).
+	if config.NetcatActiveSide.IsUnknown() {
+		return ""
+	}
+	if config.NetcatActiveSide.IsNull() {
+		return "transport = \"SSH+NETCAT\" requires netcat_active_side to be set (LOCAL or REMOTE)."
 	}
 	return ""
 }
@@ -163,6 +199,10 @@ func (r *ReplicationResource) ValidateConfig(ctx context.Context, req resource.V
 
 	if msg := sshOnlyFieldsWithoutSSH(&config); msg != "" {
 		resp.Diagnostics.AddError("SSH-only attribute set", msg)
+	}
+
+	if msg := netcatFieldsMismatch(&config); msg != "" {
+		resp.Diagnostics.AddError("Invalid netcat configuration for transport", msg)
 	}
 }
 

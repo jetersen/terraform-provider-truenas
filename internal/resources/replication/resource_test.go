@@ -809,6 +809,156 @@ func TestResponseToModel_CompressionSpeedLimit(t *testing.T) {
 	}
 }
 
+// TestReplicationPayload_NetcatFieldsSet verifies the netcat_* attributes
+// pass through to the payload when set (SSH+NETCAT transport).
+func TestReplicationPayload_NetcatFieldsSet(t *testing.T) {
+	ctx := context.Background()
+
+	m := baseModel(ctx, t)
+	m.Transport = types.StringValue("SSH+NETCAT")
+	m.NetcatActiveSide = types.StringValue("LOCAL")
+	m.NetcatActiveSideListenAddress = types.StringValue("0.0.0.0")
+	m.NetcatActiveSidePortMin = types.Int64Value(20000)
+	m.NetcatActiveSidePortMax = types.Int64Value(20100)
+	m.NetcatPassiveSideConnectAddress = types.StringValue("192.0.2.10")
+
+	payload, diags := m.apiPayload(ctx)
+	if diags.HasError() {
+		t.Fatalf("apiPayload returned errors: %v", diags)
+	}
+	if v := payload["netcat_active_side"]; v != "LOCAL" {
+		t.Errorf("payload[netcat_active_side] = %v, want LOCAL", v)
+	}
+	if v := payload["netcat_active_side_listen_address"]; v != "0.0.0.0" {
+		t.Errorf("payload[netcat_active_side_listen_address] = %v, want 0.0.0.0", v)
+	}
+	if v := payload["netcat_active_side_port_min"]; v != int64(20000) {
+		t.Errorf("payload[netcat_active_side_port_min] = %v, want 20000", v)
+	}
+	if v := payload["netcat_active_side_port_max"]; v != int64(20100) {
+		t.Errorf("payload[netcat_active_side_port_max] = %v, want 20100", v)
+	}
+	if v := payload["netcat_passive_side_connect_address"]; v != "192.0.2.10" {
+		t.Errorf("payload[netcat_passive_side_connect_address] = %v, want 192.0.2.10", v)
+	}
+}
+
+// TestReplicationPayload_NetcatNullBecomesNil verifies unset netcat_* fields
+// always send explicit nil (so switching away from SSH+NETCAT clears them).
+func TestReplicationPayload_NetcatNullBecomesNil(t *testing.T) {
+	ctx := context.Background()
+
+	m := baseModel(ctx, t) // netcat fields default to null
+	payload, diags := m.apiPayload(ctx)
+	if diags.HasError() {
+		t.Fatalf("apiPayload returned errors: %v", diags)
+	}
+	for _, key := range []string{
+		"netcat_active_side", "netcat_active_side_listen_address",
+		"netcat_active_side_port_min", "netcat_active_side_port_max",
+		"netcat_passive_side_connect_address",
+	} {
+		if v, ok := payload[key]; !ok || v != nil {
+			t.Errorf("payload[%s] = %v (ok=%v), want nil", key, v, ok)
+		}
+	}
+}
+
+// TestResponseToModel_NetcatFields verifies the nil (non-netcat task) and
+// populated (SSH+NETCAT task) cases decode to null / concrete values.
+func TestResponseToModel_NetcatFields(t *testing.T) {
+	ctx := context.Background()
+
+	api := &replicationAPI{
+		ID: 1, Name: "t", Direction: "PUSH", Transport: "LOCAL",
+		SourceDatasets: []string{"tank/data"}, TargetDataset: "backup/data", RetentionPolicy: "SOURCE",
+	}
+	var m ReplicationModel
+	if diags := responseToModel(ctx, api, &m); diags.HasError() {
+		t.Fatalf("responseToModel returned errors: %v", diags)
+	}
+	if !m.NetcatActiveSide.IsNull() || !m.NetcatActiveSidePortMin.IsNull() {
+		t.Error("netcat fields should be null when API returns nil")
+	}
+
+	side := "REMOTE"
+	listen := "0.0.0.0"
+	connect := "192.0.2.10"
+	pmin := int64(20000)
+	pmax := int64(20100)
+	api2 := &replicationAPI{
+		ID: 2, Name: "t2", Direction: "PUSH", Transport: "SSH+NETCAT",
+		SourceDatasets: []string{"tank/data"}, TargetDataset: "backup/data", RetentionPolicy: "SOURCE",
+		NetcatActiveSide: &side, NetcatActiveSideListenAddress: &listen,
+		NetcatActiveSidePortMin: &pmin, NetcatActiveSidePortMax: &pmax,
+		NetcatPassiveSideConnectAddress: &connect,
+	}
+	var m2 ReplicationModel
+	if diags := responseToModel(ctx, api2, &m2); diags.HasError() {
+		t.Fatalf("responseToModel returned errors: %v", diags)
+	}
+	if m2.NetcatActiveSide.ValueString() != "REMOTE" {
+		t.Errorf("NetcatActiveSide = %q, want REMOTE", m2.NetcatActiveSide.ValueString())
+	}
+	if m2.NetcatActiveSidePortMax.ValueInt64() != 20100 {
+		t.Errorf("NetcatActiveSidePortMax = %v, want 20100", m2.NetcatActiveSidePortMax.ValueInt64())
+	}
+}
+
+// TestTransportSSHCredentialsMismatch_Netcat verifies SSH+NETCAT requires
+// ssh_credentials, the same as SSH.
+func TestTransportSSHCredentialsMismatch_Netcat(t *testing.T) {
+	cases := []struct {
+		name     string
+		sshCreds types.Int64
+		wantBad  bool
+	}{
+		{"SSH+NETCAT with credentials", types.Int64Value(7), false},
+		{"SSH+NETCAT without credentials", types.Int64Null(), true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			config := &ReplicationModel{Transport: types.StringValue("SSH+NETCAT"), SSHCredentials: tc.sshCreds}
+			if got := transportSSHCredentialsMismatch(config) != ""; got != tc.wantBad {
+				t.Errorf("transportSSHCredentialsMismatch() bad=%v, want %v", got, tc.wantBad)
+			}
+		})
+	}
+}
+
+// TestNetcatFieldsMismatch exercises the SSH+NETCAT pairing: netcat_* fields
+// are only valid for SSH+NETCAT, which in turn requires netcat_active_side.
+func TestNetcatFieldsMismatch(t *testing.T) {
+	cases := []struct {
+		name       string
+		transport  types.String
+		activeSide types.String
+		portMin    types.Int64
+		wantBad    bool
+	}{
+		{"netcat on SSH+NETCAT with active side", types.StringValue("SSH+NETCAT"), types.StringValue("LOCAL"), types.Int64Value(20000), false},
+		{"SSH+NETCAT missing active side", types.StringValue("SSH+NETCAT"), types.StringNull(), types.Int64Null(), true},
+		{"netcat field set on SSH", types.StringValue("SSH"), types.StringNull(), types.Int64Value(20000), true},
+		{"netcat field set on LOCAL", types.StringValue("LOCAL"), types.StringNull(), types.Int64Value(20000), true},
+		{"active side set on SSH", types.StringValue("SSH"), types.StringValue("LOCAL"), types.Int64Null(), true},
+		{"no netcat on SSH", types.StringValue("SSH"), types.StringNull(), types.Int64Null(), false},
+		{"unknown transport skips", types.StringUnknown(), types.StringValue("LOCAL"), types.Int64Null(), false},
+		{"SSH+NETCAT unknown active side skips", types.StringValue("SSH+NETCAT"), types.StringUnknown(), types.Int64Null(), false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			config := &ReplicationModel{
+				Transport:               tc.transport,
+				NetcatActiveSide:        tc.activeSide,
+				NetcatActiveSidePortMin: tc.portMin,
+			}
+			if got := netcatFieldsMismatch(config) != ""; got != tc.wantBad {
+				t.Errorf("netcatFieldsMismatch() bad=%v, want %v", got, tc.wantBad)
+			}
+		})
+	}
+}
+
 // baseModel builds a fully-populated, valid ReplicationModel for payload tests.
 func baseModel(ctx context.Context, t *testing.T) ReplicationModel {
 	t.Helper()
