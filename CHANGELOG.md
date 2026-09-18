@@ -7,6 +7,13 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [Unreleased]
 
 ### Added
+- Attribute-coverage fill from a live-API field audit:
+  - `truenas_smb_share`: nested `audit` block (`enable`, `watch_list`,
+    `ignore_list`) for per-share audit logging.
+  - `truenas_nfs_share`: `security` (SYS/KRB5/KRB5I/KRB5P) and
+    `expose_snapshots`.
+  - `truenas_iscsi_extent`: `filesize` for FILE-type extents.
+  - `truenas_iscsi_target`: nested `iscsi_parameters` block (`queued_commands`).
 - `truenas_replication_task`: SSH+NETCAT transport. `transport` now accepts
   `"SSH+NETCAT"` (unencrypted data channel over a netcat connection, authenticated
   over SSH) alongside the new `netcat_active_side`,

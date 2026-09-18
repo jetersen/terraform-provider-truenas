@@ -37,6 +37,7 @@ resource "truenas_iscsi_target" "vm" {
 - `alias` (String) Optional human-readable alias for the target.
 - `auth_networks` (List of String) List of authorized network CIDRs.
 - `groups` (Attributes List) List of portal/initiator/auth group associations. (see [below for nested schema](#nestedatt--groups))
+- `iscsi_parameters` (Attributes) Optional iSCSI-specific parameters for this target. (see [below for nested schema](#nestedatt--iscsi_parameters))
 - `mode` (String) Protocol mode: ISCSI (default), FC, or BOTH.
 
 ### Read-Only
@@ -56,3 +57,11 @@ Optional:
 - `auth` (Number) Auth group ID (0 = none).
 - `authmethod` (String) Authentication method: NONE, CHAP, CHAP_MUTUAL.
 - `initiator` (Number) Initiator group ID (0 = none).
+
+
+<a id="nestedatt--iscsi_parameters"></a>
+### Nested Schema for `iscsi_parameters`
+
+Optional:
+
+- `queued_commands` (Number) Maximum queued commands per iSCSI session: 32 or 128.

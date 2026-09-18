@@ -23,6 +23,7 @@ Fetches a TrueNAS SMB share by name.
 
 - `abe` (Boolean)
 - `acl` (Boolean)
+- `audit` (Attributes) (see [below for nested schema](#nestedatt--audit))
 - `browsable` (Boolean)
 - `comment` (String)
 - `durablehandle` (Boolean)
@@ -41,3 +42,12 @@ Fetches a TrueNAS SMB share by name.
 - `timemachine` (Boolean)
 - `timemachine_quota` (Number)
 - `vuid` (String)
+
+<a id="nestedatt--audit"></a>
+### Nested Schema for `audit`
+
+Read-Only:
+
+- `enable` (Boolean)
+- `ignore_list` (List of String)
+- `watch_list` (List of String)

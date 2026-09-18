@@ -25,6 +25,7 @@ Fetches a TrueNAS iSCSI target by name.
 - `auth_networks` (List of String)
 - `groups` (Attributes List) (see [below for nested schema](#nestedatt--groups))
 - `id` (Number) Numeric iSCSI target ID.
+- `iscsi_parameters` (Attributes) (see [below for nested schema](#nestedatt--iscsi_parameters))
 - `mode` (String)
 - `rel_tgt_id` (Number)
 
@@ -37,3 +38,11 @@ Read-Only:
 - `authmethod` (String)
 - `initiator` (Number)
 - `portal` (Number)
+
+
+<a id="nestedatt--iscsi_parameters"></a>
+### Nested Schema for `iscsi_parameters`
+
+Read-Only:
+
+- `queued_commands` (Number)

@@ -36,6 +36,12 @@ func (d *ISCSITargetDataSource) Schema(_ context.Context, _ datasource.SchemaReq
 			"mode":          dschema.StringAttribute{Computed: true},
 			"rel_tgt_id":    dschema.Int64Attribute{Computed: true},
 			"auth_networks": dschema.ListAttribute{Computed: true, ElementType: types.StringType},
+			"iscsi_parameters": dschema.SingleNestedAttribute{
+				Computed: true,
+				Attributes: map[string]dschema.Attribute{
+					"queued_commands": dschema.Int64Attribute{Computed: true},
+				},
+			},
 			"groups": dschema.ListNestedAttribute{
 				Computed: true,
 				NestedObject: dschema.NestedAttributeObject{

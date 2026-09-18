@@ -33,6 +33,7 @@ resource "truenas_smb_share" "data" {
 
 - `abe` (Boolean) Enable Access-Based Enumeration. Sent to TrueNAS 26.0 as the top-level `access_based_share_enumeration` field (renamed from `abe` on the wire; the Terraform attribute name is unchanged for backward compatibility).
 - `acl` (Boolean) Enable ACL support on this share. LEGACY_SHARE-only on TrueNAS 26.0; see `recyclebin` for details on the options mapping.
+- `audit` (Attributes) Per-share audit logging configuration. (see [below for nested schema](#nestedatt--audit))
 - `browsable` (Boolean) Allow share to appear in Windows network browsing. Sent as the top-level `browsable` field.
 - `comment` (String) Optional share description.
 - `durablehandle` (Boolean) Enable SMB2 durable handles. LEGACY_SHARE-only on TrueNAS 26.0; see `recyclebin` for details on the options mapping.
@@ -53,3 +54,12 @@ resource "truenas_smb_share" "data" {
 - `id` (Number) Numeric SMB share ID assigned by TrueNAS.
 - `locked` (Boolean) Whether the share path is currently locked.
 - `vuid` (String) Vendor unique identifier assigned by TrueNAS. On TrueNAS 26.0 this is only populated (and only meaningful) when `purpose` is LEGACY_SHARE, where it lives nested under `options.vuid` on the wire.
+
+<a id="nestedatt--audit"></a>
+### Nested Schema for `audit`
+
+Optional:
+
+- `enable` (Boolean) Enable auditing for this share. Cannot be enabled if the SMB service minimum_protocol is SMB1.
+- `ignore_list` (List of String) Group names to exclude from auditing.
+- `watch_list` (List of String) Group names to audit. Empty means audit all groups.

@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 )
 
 // TargetGroupModel maps to the nested groups list items.
@@ -19,15 +20,26 @@ type TargetGroupModel struct {
 	AuthMethod types.String `tfsdk:"authmethod"` // NONE, CHAP, CHAP_MUTUAL
 }
 
+// IscsiParametersModel maps to the nested "iscsi_parameters" object.
+type IscsiParametersModel struct {
+	QueuedCommands types.Int64 `tfsdk:"queued_commands"` // 32 or 128; null = unset
+}
+
+// iscsiParamsAttrTypes is the attribute type map for IscsiParametersModel.
+var iscsiParamsAttrTypes = map[string]attr.Type{
+	"queued_commands": types.Int64Type,
+}
+
 // ISCSITargetModel is the Terraform state model for truenas_iscsi_target.
 type ISCSITargetModel struct {
-	ID           types.Int64  `tfsdk:"id"`
-	Name         types.String `tfsdk:"name"`
-	Alias        types.String `tfsdk:"alias"`         // Optional, nullable
-	Mode         types.String `tfsdk:"mode"`          // ISCSI, FC, BOTH
-	Groups       types.List   `tfsdk:"groups"`        // List[TargetGroupModel]
-	AuthNetworks types.List   `tfsdk:"auth_networks"` // List[String]
-	RelTgtID     types.Int64  `tfsdk:"rel_tgt_id"`    // Computed only
+	ID              types.Int64  `tfsdk:"id"`
+	Name            types.String `tfsdk:"name"`
+	Alias           types.String `tfsdk:"alias"`            // Optional, nullable
+	Mode            types.String `tfsdk:"mode"`             // ISCSI, FC, BOTH
+	Groups          types.List   `tfsdk:"groups"`           // List[TargetGroupModel]
+	AuthNetworks    types.List   `tfsdk:"auth_networks"`    // List[String]
+	IscsiParameters types.Object `tfsdk:"iscsi_parameters"` // nested; null when unset
+	RelTgtID        types.Int64  `tfsdk:"rel_tgt_id"`       // Computed only
 }
 
 // targetGroupAPI is the JSON wire format for a group entry.
@@ -40,13 +52,16 @@ type targetGroupAPI struct {
 
 // targetAPI is the JSON wire format for a TrueNAS iSCSI target object.
 type targetAPI struct {
-	ID           int64            `json:"id"`
-	Name         string           `json:"name"`
-	Alias        *string          `json:"alias"`
-	Mode         string           `json:"mode"`
-	Groups       []targetGroupAPI `json:"groups"`
-	AuthNetworks []string         `json:"auth_networks"`
-	RelTgtID     int64            `json:"rel_tgt_id"`
+	ID              int64            `json:"id"`
+	Name            string           `json:"name"`
+	Alias           *string          `json:"alias"`
+	Mode            string           `json:"mode"`
+	Groups          []targetGroupAPI `json:"groups"`
+	AuthNetworks    []string         `json:"auth_networks"`
+	IscsiParameters *struct {
+		QueuedCommands *int64 `json:"QueuedCommands"`
+	} `json:"iscsi_parameters"`
+	RelTgtID int64 `json:"rel_tgt_id"`
 }
 
 // groupsAttrTypes is the attribute type map for a TargetGroupModel object.
@@ -105,6 +120,20 @@ func responseToModel(ctx context.Context, api *targetAPI, m *ISCSITargetModel) d
 	diags.Append(d...)
 	m.AuthNetworks = anList
 
+	// iscsi_parameters: null when the API omits it, otherwise an object whose
+	// queued_commands is null unless the server set a value.
+	if api.IscsiParameters == nil {
+		m.IscsiParameters = types.ObjectNull(iscsiParamsAttrTypes)
+	} else {
+		qc := types.Int64Null()
+		if api.IscsiParameters.QueuedCommands != nil {
+			qc = types.Int64Value(*api.IscsiParameters.QueuedCommands)
+		}
+		obj, dParam := types.ObjectValueFrom(ctx, iscsiParamsAttrTypes, IscsiParametersModel{QueuedCommands: qc})
+		diags.Append(dParam...)
+		m.IscsiParameters = obj
+	}
+
 	return diags
 }
 
@@ -162,6 +191,20 @@ func (m *ISCSITargetModel) apiPayload(ctx context.Context) (map[string]any, diag
 	}
 	if !m.Mode.IsNull() && !m.Mode.IsUnknown() && m.Mode.ValueString() != "" {
 		payload["mode"] = m.Mode.ValueString()
+	}
+
+	// iscsi_parameters: send only when the user set the nested object. Inside,
+	// QueuedCommands is sent as its value or explicit null.
+	if !m.IscsiParameters.IsNull() && !m.IscsiParameters.IsUnknown() {
+		var params IscsiParametersModel
+		diags.Append(m.IscsiParameters.As(ctx, &params, basetypes.ObjectAsOptions{})...)
+		inner := map[string]any{}
+		if !params.QueuedCommands.IsNull() && !params.QueuedCommands.IsUnknown() {
+			inner["QueuedCommands"] = params.QueuedCommands.ValueInt64()
+		} else {
+			inner["QueuedCommands"] = nil
+		}
+		payload["iscsi_parameters"] = inner
 	}
 
 	return payload, diags

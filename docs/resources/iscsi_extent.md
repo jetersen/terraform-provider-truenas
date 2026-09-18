@@ -36,6 +36,7 @@ resource "truenas_iscsi_extent" "vm_disk" {
 - `comment` (String) Optional description for the extent.
 - `disk` (String) Zvol path for DISK type extents (e.g. zvol/tank/myvol).
 - `enabled` (Boolean) Enable this extent.
+- `filesize` (Number) Size of a FILE type extent, in bytes (0 = unset; ignored for DISK extents).
 - `insecure_tpc` (Boolean) Allow target-to-target XCOPY (insecure third-party copy).
 - `path` (String) File path for FILE type extents.
 - `pblocksize` (Boolean) Report physical block size to initiators.

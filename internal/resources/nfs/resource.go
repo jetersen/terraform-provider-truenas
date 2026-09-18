@@ -197,6 +197,11 @@ func (r *NFSShareResource) responseToModel(ctx context.Context, api *apiResponse
 	m.MapGroup = types.StringValue(api.MapGroup)
 	m.MapAll = types.StringValue(api.MapAll)
 	m.MapAllGr = types.StringValue(api.MapAllGr)
+	m.ExposeSns = types.BoolValue(api.ExposeSn)
+
+	security, dSec := types.ListValueFrom(ctx, types.StringType, api.Security)
+	diags.Append(dSec...)
+	m.Security = security
 
 	networks, d := types.ListValueFrom(ctx, types.StringType, api.Networks)
 	diags.Append(d...)

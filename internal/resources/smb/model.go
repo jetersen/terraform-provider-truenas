@@ -6,9 +6,25 @@ package smb
 import (
 	"context"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 )
+
+// SMBAuditModel maps to the nested "audit" object.
+type SMBAuditModel struct {
+	Enable     types.Bool `tfsdk:"enable"`
+	WatchList  types.List `tfsdk:"watch_list"`  // List[String] group names
+	IgnoreList types.List `tfsdk:"ignore_list"` // List[String] group names
+}
+
+// smbAuditAttrTypes is the attribute type map for SMBAuditModel.
+var smbAuditAttrTypes = map[string]attr.Type{
+	"enable":      types.BoolType,
+	"watch_list":  types.ListType{ElemType: types.StringType},
+	"ignore_list": types.ListType{ElemType: types.StringType},
+}
 
 // SMBModel is the Terraform state model for truenas_smb_share. The schema
 // stays flat for backward compatibility with existing configs; the wire
@@ -34,6 +50,7 @@ type SMBModel struct {
 	Enabled          types.Bool   `tfsdk:"enabled"`
 	Home             types.Bool   `tfsdk:"home"`
 	Purpose          types.String `tfsdk:"purpose"`
+	Audit            types.Object `tfsdk:"audit"` // nested {enable, watch_list, ignore_list}
 	// Computed-only — server generated
 	VUID   types.String `tfsdk:"vuid"`
 	Locked types.Bool   `tfsdk:"locked"`
@@ -74,6 +91,11 @@ type smbAPI struct {
 	Purpose   string         `json:"purpose"`
 	Locked    *bool          `json:"locked"`
 	Options   *smbOptionsAPI `json:"options"`
+	Audit     *struct {
+		Enable     bool     `json:"enable"`
+		WatchList  []string `json:"watch_list"`
+		IgnoreList []string `json:"ignore_list"`
+	} `json:"audit"`
 }
 
 // legacySharePurpose is the purpose value used to preserve the old flat
@@ -160,6 +182,33 @@ func responseToModel(ctx context.Context, api *smbAPI, m *SMBModel) diag.Diagnos
 		m.HostsDeny = emptyList
 	}
 
+	// audit is a top-level object the API always returns (default enable=false,
+	// empty lists). Build it unconditionally so the Optional+Computed attribute
+	// always has a concrete value.
+	enable := false
+	watch := []string{}
+	ignore := []string{}
+	if api.Audit != nil {
+		enable = api.Audit.Enable
+		if api.Audit.WatchList != nil {
+			watch = api.Audit.WatchList
+		}
+		if api.Audit.IgnoreList != nil {
+			ignore = api.Audit.IgnoreList
+		}
+	}
+	watchList, dw := types.ListValueFrom(ctx, types.StringType, watch)
+	diags.Append(dw...)
+	ignoreList, di := types.ListValueFrom(ctx, types.StringType, ignore)
+	diags.Append(di...)
+	auditObj, da := types.ObjectValueFrom(ctx, smbAuditAttrTypes, SMBAuditModel{
+		Enable:     types.BoolValue(enable),
+		WatchList:  watchList,
+		IgnoreList: ignoreList,
+	})
+	diags.Append(da...)
+	m.Audit = auditObj
+
 	return diags
 }
 
@@ -244,6 +293,34 @@ func (m *SMBModel) apiPayload(ctx context.Context) (map[string]any, diag.Diagnos
 	}
 
 	p["options"] = options
+
+	// audit is a top-level object (not nested under options). Send it when the
+	// user set it; each sub-field is included only when known.
+	if !m.Audit.IsNull() && !m.Audit.IsUnknown() {
+		var a SMBAuditModel
+		diags.Append(m.Audit.As(ctx, &a, basetypes.ObjectAsOptions{})...)
+		audit := map[string]any{}
+		if !a.Enable.IsNull() && !a.Enable.IsUnknown() {
+			audit["enable"] = a.Enable.ValueBool()
+		}
+		if !a.WatchList.IsNull() && !a.WatchList.IsUnknown() {
+			var wl []string
+			diags.Append(a.WatchList.ElementsAs(ctx, &wl, false)...)
+			if wl == nil {
+				wl = []string{}
+			}
+			audit["watch_list"] = wl
+		}
+		if !a.IgnoreList.IsNull() && !a.IgnoreList.IsUnknown() {
+			var il []string
+			diags.Append(a.IgnoreList.ElementsAs(ctx, &il, false)...)
+			if il == nil {
+				il = []string{}
+			}
+			audit["ignore_list"] = il
+		}
+		p["audit"] = audit
+	}
 
 	return p, diags
 }

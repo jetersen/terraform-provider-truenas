@@ -4,10 +4,13 @@
 package iscsi_target
 
 import (
+	"github.com/hashicorp/terraform-plugin-framework-validators/int64validator"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/listplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -74,6 +77,24 @@ func resourceSchema() schema.Schema {
 				Description: "List of authorized network CIDRs.",
 				PlanModifiers: []planmodifier.List{
 					listplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"iscsi_parameters": schema.SingleNestedAttribute{
+				Optional:    true,
+				Computed:    true,
+				Description: "Optional iSCSI-specific parameters for this target.",
+				PlanModifiers: []planmodifier.Object{
+					objectplanmodifier.UseStateForUnknown(),
+				},
+				Attributes: map[string]schema.Attribute{
+					"queued_commands": schema.Int64Attribute{
+						Optional:    true,
+						Computed:    true,
+						Description: "Maximum queued commands per iSCSI session: 32 or 128.",
+						Validators: []validator.Int64{
+							int64validator.OneOf(32, 128),
+						},
+					},
 				},
 			},
 			"rel_tgt_id": schema.Int64Attribute{

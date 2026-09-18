@@ -34,6 +34,7 @@ func (d *ISCSIExtentDataSource) Schema(_ context.Context, _ datasource.SchemaReq
 			"type":            dschema.StringAttribute{Computed: true},
 			"disk":            dschema.StringAttribute{Computed: true},
 			"path":            dschema.StringAttribute{Computed: true},
+			"filesize":        dschema.Int64Attribute{Computed: true},
 			"comment":         dschema.StringAttribute{Computed: true},
 			"blocksize":       dschema.Int64Attribute{Computed: true},
 			"pblocksize":      dschema.BoolAttribute{Computed: true},

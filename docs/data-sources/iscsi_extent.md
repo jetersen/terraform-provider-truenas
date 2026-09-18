@@ -26,6 +26,7 @@ Fetches a TrueNAS iSCSI extent by name.
 - `comment` (String)
 - `disk` (String)
 - `enabled` (Boolean)
+- `filesize` (Number)
 - `id` (Number) Numeric iSCSI extent ID.
 - `insecure_tpc` (Boolean)
 - `locked` (Boolean)

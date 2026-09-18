@@ -4,10 +4,13 @@
 package nfs
 
 import (
+	"github.com/hashicorp/terraform-plugin-framework-validators/listvalidator"
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/booldefault"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -70,6 +73,21 @@ func resourceSchema() schema.Schema {
 				Optional:    true,
 				Computed:    true,
 				Description: "Map all client groups to this group. Mutually exclusive with maproot_group.",
+			},
+			"security": schema.ListAttribute{
+				Optional:    true,
+				Computed:    true,
+				ElementType: types.StringType,
+				Description: "NFS security flavors for the export, in order of preference: SYS, KRB5, KRB5I, KRB5P.",
+				Validators: []validator.List{
+					listvalidator.ValueStringsAre(stringvalidator.OneOf("SYS", "KRB5", "KRB5I", "KRB5P")),
+				},
+			},
+			"expose_snapshots": schema.BoolAttribute{
+				Optional: true,
+				Computed: true,
+				Description: "Enterprise feature: expose the ZFS snapshot directory for the export. The export " +
+					"path must be the root directory of a ZFS dataset.",
 			},
 		},
 	}

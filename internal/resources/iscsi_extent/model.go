@@ -5,6 +5,7 @@ package iscsi_extent
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -14,9 +15,10 @@ import (
 type ISCSIExtentModel struct {
 	ID             types.Int64  `tfsdk:"id"`
 	Name           types.String `tfsdk:"name"`
-	Type           types.String `tfsdk:"type"` // DISK or FILE
-	Disk           types.String `tfsdk:"disk"` // Optional: zvol path e.g. "zvol/tank/myvol"
-	Path           types.String `tfsdk:"path"` // Optional: file path (FILE type)
+	Type           types.String `tfsdk:"type"`     // DISK or FILE
+	Disk           types.String `tfsdk:"disk"`     // Optional: zvol path e.g. "zvol/tank/myvol"
+	Path           types.String `tfsdk:"path"`     // Optional: file path (FILE type)
+	Filesize       types.Int64  `tfsdk:"filesize"` // FILE type: size in bytes; 0 = unset
 	Comment        types.String `tfsdk:"comment"`
 	Blocksize      types.Int64  `tfsdk:"blocksize"` // 512, 1024, 2048, 4096
 	PBlocksize     types.Bool   `tfsdk:"pblocksize"`
@@ -41,6 +43,7 @@ type extentAPI struct {
 	Type           string  `json:"type"`
 	Disk           *string `json:"disk"`
 	Path           string  `json:"path"`
+	Filesize       any     `json:"filesize"` // API returns string or integer bytes
 	Comment        string  `json:"comment"`
 	Blocksize      int64   `json:"blocksize"`
 	PBlocksize     bool    `json:"pblocksize"`
@@ -91,7 +94,31 @@ func responseToModel(_ context.Context, api *extentAPI, m *ISCSIExtentModel) dia
 		m.AvailThreshold = types.Int64Value(0)
 	}
 
+	m.Filesize = types.Int64Value(coerceInt64(api.Filesize))
+
 	return diags
+}
+
+// coerceInt64 converts the API's filesize field, which may arrive as a JSON
+// number (float64 after decode) or a numeric string, into an int64. Anything
+// unparseable yields 0.
+func coerceInt64(v any) int64 {
+	switch t := v.(type) {
+	case float64:
+		return int64(t)
+	case int64:
+		return t
+	case int:
+		return int64(t)
+	case string:
+		n, err := strconv.ParseInt(t, 10, 64)
+		if err != nil {
+			return 0
+		}
+		return n
+	default:
+		return 0
+	}
 }
 
 // apiPayload builds the map[string]any payload for iscsi.extent.create /
@@ -147,6 +174,11 @@ func (m *ISCSIExtentModel) apiPayload(_ context.Context) (map[string]any, diag.D
 		payload["disk"] = m.Disk.ValueString()
 	} else {
 		payload["path"] = m.Path.ValueString()
+		// filesize applies to FILE extents only; send it when the user set a
+		// non-zero size (0 = unset, mirroring avail_threshold above).
+		if v := m.Filesize.ValueInt64(); v != 0 {
+			payload["filesize"] = v
+		}
 	}
 
 	return payload, diags

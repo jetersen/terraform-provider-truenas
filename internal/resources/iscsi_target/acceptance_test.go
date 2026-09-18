@@ -56,6 +56,59 @@ func TestAccISCSITarget_basic(t *testing.T) {
 	})
 }
 
+// TestAccISCSITarget_params exercises the nested iscsi_parameters block
+// (queued_commands), verifies it round trips, and imports.
+func TestAccISCSITarget_params(t *testing.T) {
+	portalComment := acctest.RandName("tf-acc-tgtparam-portal")
+	name := acctest.RandName("tfacctgtparam")
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { acctest.PreCheck(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckISCSITargetDestroyed(name),
+		Steps: []resource.TestStep{
+			{
+				Config: acctest.ProviderConfig() + testAccISCSITargetParamsConfig(portalComment, name),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("truenas_iscsi_target.test", "iscsi_parameters.queued_commands", "128"),
+				),
+			},
+			{
+				ResourceName:      "truenas_iscsi_target.test",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
+func testAccISCSITargetParamsConfig(portalComment, name string) string {
+	return fmt.Sprintf(`
+resource "truenas_iscsi_portal" "fixture" {
+  comment = %q
+  listen = [
+    {
+      ip = %q
+    }
+  ]
+}
+
+resource "truenas_iscsi_target" "test" {
+  name = %q
+  mode = "ISCSI"
+  groups = [
+    {
+      portal     = truenas_iscsi_portal.fixture.id
+      authmethod = "NONE"
+    }
+  ]
+  iscsi_parameters = {
+    queued_commands = 128
+  }
+}
+`, portalComment, acctest.EndpointHost(), name)
+}
+
 func testAccISCSITargetConfig(portalComment, name, alias string) string {
 	return fmt.Sprintf(`
 resource "truenas_iscsi_portal" "fixture" {

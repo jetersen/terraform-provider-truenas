@@ -71,6 +71,9 @@ func TestAccNFSShare_mapall(t *testing.T) {
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("truenas_nfs_share.test", "mapall_user", "root"),
 					resource.TestCheckResourceAttr("truenas_nfs_share.test", "mapall_group", "root"),
+					resource.TestCheckResourceAttr("truenas_nfs_share.test", "security.#", "1"),
+					resource.TestCheckResourceAttr("truenas_nfs_share.test", "security.0", "SYS"),
+					resource.TestCheckResourceAttrSet("truenas_nfs_share.test", "expose_snapshots"),
 				),
 			},
 			{
@@ -92,6 +95,7 @@ resource "truenas_nfs_share" "test" {
   path         = truenas_dataset.fixture.mountpoint
   mapall_user  = %q
   mapall_group = %q
+  security     = ["SYS"]
 }
 `, datasetName, mapallUser, mapallGroup)
 }

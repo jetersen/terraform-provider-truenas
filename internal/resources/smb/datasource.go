@@ -49,8 +49,16 @@ func (d *SMBShareDataSource) Schema(_ context.Context, _ datasource.SchemaReques
 			"enabled":           dschema.BoolAttribute{Computed: true},
 			"home":              dschema.BoolAttribute{Computed: true},
 			"purpose":           dschema.StringAttribute{Computed: true},
-			"vuid":              dschema.StringAttribute{Computed: true},
-			"locked":            dschema.BoolAttribute{Computed: true},
+			"audit": dschema.SingleNestedAttribute{
+				Computed: true,
+				Attributes: map[string]dschema.Attribute{
+					"enable":      dschema.BoolAttribute{Computed: true},
+					"watch_list":  dschema.ListAttribute{Computed: true, ElementType: types.StringType},
+					"ignore_list": dschema.ListAttribute{Computed: true, ElementType: types.StringType},
+				},
+			},
+			"vuid":   dschema.StringAttribute{Computed: true},
+			"locked": dschema.BoolAttribute{Computed: true},
 		},
 	}
 }

@@ -56,6 +56,50 @@ func TestAccISCSIExtent_basic(t *testing.T) {
 	})
 }
 
+// TestAccISCSIExtent_fileType creates a FILE-type extent with an explicit
+// filesize (TrueNAS creates the backing file), verifies filesize round trips,
+// and imports.
+func TestAccISCSIExtent_fileType(t *testing.T) {
+	datasetName := fmt.Sprintf("%s/%s", acctest.TestPool(), acctest.RandName("tf-acc-ext-file-ds"))
+	extentName := acctest.RandName("tfaccextfile")
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { acctest.PreCheck(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckISCSIExtentDestroyed(extentName),
+		Steps: []resource.TestStep{
+			{
+				Config: acctest.ProviderConfig() + testAccISCSIExtentFileConfig(datasetName, extentName),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("truenas_iscsi_extent.test", "type", "FILE"),
+					resource.TestCheckResourceAttr("truenas_iscsi_extent.test", "filesize", "67108864"),
+				),
+			},
+			{
+				ResourceName:      "truenas_iscsi_extent.test",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
+func testAccISCSIExtentFileConfig(datasetName, extentName string) string {
+	return fmt.Sprintf(`
+resource "truenas_dataset" "fixture" {
+  name = %q
+}
+
+resource "truenas_iscsi_extent" "test" {
+  name     = %q
+  type     = "FILE"
+  path     = "${truenas_dataset.fixture.mountpoint}/extent.img"
+  filesize = 67108864
+  enabled  = true
+}
+`, datasetName, extentName)
+}
+
 func testAccISCSIExtentConfig(zvolName, extentName, comment string) string {
 	return fmt.Sprintf(`
 resource "truenas_zvol" "fixture" {

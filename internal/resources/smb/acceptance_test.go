@@ -62,6 +62,60 @@ func TestAccSMBShare_basic(t *testing.T) {
 	})
 }
 
+// TestAccSMBShare_audit exercises the nested audit block: enable auditing with
+// a watch_list, verify the values round trip, and import.
+func TestAccSMBShare_audit(t *testing.T) {
+	datasetName := fmt.Sprintf("%s/%s", acctest.TestPool(), acctest.RandName("tf-acc-smb-audit-ds"))
+	shareName := acctest.RandName("tfaccsmbaudit")
+	groupName := acctest.RandName("tfaccsmbauditgrp")
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { acctest.PreCheck(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckSMBShareDestroyed(shareName),
+		Steps: []resource.TestStep{
+			{
+				Config: acctest.ProviderConfig() + testAccSMBShareAuditConfig(datasetName, shareName, groupName),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("truenas_smb_share.test", "audit.enable", "true"),
+					resource.TestCheckResourceAttr("truenas_smb_share.test", "audit.watch_list.#", "1"),
+					resource.TestCheckResourceAttr("truenas_smb_share.test", "audit.watch_list.0", groupName),
+				),
+			},
+			{
+				ResourceName:      "truenas_smb_share.test",
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
+func testAccSMBShareAuditConfig(datasetName, shareName, groupName string) string {
+	return fmt.Sprintf(`
+resource "truenas_dataset" "test" {
+  name = %q
+}
+
+# Auditing requires a non-empty watch_list or ignore_list of real SMB groups,
+# so provision a throwaway SMB-enabled group to audit.
+resource "truenas_group" "audit" {
+  name = %q
+  smb  = true
+}
+
+resource "truenas_smb_share" "test" {
+  path    = truenas_dataset.test.mountpoint
+  name    = %q
+  enabled = true
+  audit = {
+    enable     = true
+    watch_list = [truenas_group.audit.name]
+  }
+}
+`, datasetName, groupName, shareName)
+}
+
 func testAccSMBShareConfig(datasetName, shareName, comment string, abe bool) string {
 	return fmt.Sprintf(`
 resource "truenas_dataset" "test" {

@@ -23,6 +23,7 @@ Fetches a TrueNAS NFS share by ID.
 
 - `comment` (String)
 - `enabled` (Boolean)
+- `expose_snapshots` (Boolean)
 - `hosts` (List of String)
 - `mapall_group` (String)
 - `mapall_user` (String)
@@ -31,3 +32,4 @@ Fetches a TrueNAS NFS share by ID.
 - `networks` (List of String)
 - `path` (String)
 - `ro` (Boolean)
+- `security` (List of String)

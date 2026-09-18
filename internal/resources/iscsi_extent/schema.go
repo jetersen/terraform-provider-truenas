@@ -47,6 +47,14 @@ func resourceSchema() schema.Schema {
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
+			"filesize": schema.Int64Attribute{
+				Optional:    true,
+				Computed:    true,
+				Description: "Size of a FILE type extent, in bytes (0 = unset; ignored for DISK extents).",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
+			},
 			"comment": schema.StringAttribute{
 				Optional:    true,
 				Computed:    true,
