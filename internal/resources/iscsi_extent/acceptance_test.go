@@ -69,10 +69,17 @@ func TestAccISCSIExtent_fileType(t *testing.T) {
 		CheckDestroy:             testAccCheckISCSIExtentDestroyed(extentName),
 		Steps: []resource.TestStep{
 			{
-				Config: acctest.ProviderConfig() + testAccISCSIExtentFileConfig(datasetName, extentName),
+				Config: acctest.ProviderConfig() + testAccISCSIExtentFileConfig(datasetName, extentName, 67108864),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("truenas_iscsi_extent.test", "type", "FILE"),
 					resource.TestCheckResourceAttr("truenas_iscsi_extent.test", "filesize", "67108864"),
+				),
+			},
+			// In-place update: grow the file extent.
+			{
+				Config: acctest.ProviderConfig() + testAccISCSIExtentFileConfig(datasetName, extentName, 134217728),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("truenas_iscsi_extent.test", "filesize", "134217728"),
 				),
 			},
 			{
@@ -84,7 +91,7 @@ func TestAccISCSIExtent_fileType(t *testing.T) {
 	})
 }
 
-func testAccISCSIExtentFileConfig(datasetName, extentName string) string {
+func testAccISCSIExtentFileConfig(datasetName, extentName string, filesize int64) string {
 	return fmt.Sprintf(`
 resource "truenas_dataset" "fixture" {
   name = %q
@@ -94,10 +101,10 @@ resource "truenas_iscsi_extent" "test" {
   name     = %q
   type     = "FILE"
   path     = "${truenas_dataset.fixture.mountpoint}/extent.img"
-  filesize = 67108864
+  filesize = %d
   enabled  = true
 }
-`, datasetName, extentName)
+`, datasetName, extentName, filesize)
 }
 
 func testAccISCSIExtentConfig(zvolName, extentName, comment string) string {

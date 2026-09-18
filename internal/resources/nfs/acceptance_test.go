@@ -67,13 +67,21 @@ func TestAccNFSShare_mapall(t *testing.T) {
 		CheckDestroy:             testAccCheckNFSShareDestroyed(datasetName),
 		Steps: []resource.TestStep{
 			{
-				Config: acctest.ProviderConfig() + testAccNFSShareMapallConfig(datasetName, "root", "root"),
+				Config: acctest.ProviderConfig() + testAccNFSShareMapallConfig(datasetName, "root", "root", `["SYS"]`),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("truenas_nfs_share.test", "mapall_user", "root"),
 					resource.TestCheckResourceAttr("truenas_nfs_share.test", "mapall_group", "root"),
 					resource.TestCheckResourceAttr("truenas_nfs_share.test", "security.#", "1"),
 					resource.TestCheckResourceAttr("truenas_nfs_share.test", "security.0", "SYS"),
 					resource.TestCheckResourceAttrSet("truenas_nfs_share.test", "expose_snapshots"),
+				),
+			},
+			// In-place update: grow the security list.
+			{
+				Config: acctest.ProviderConfig() + testAccNFSShareMapallConfig(datasetName, "root", "root", `["SYS", "KRB5"]`),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("truenas_nfs_share.test", "security.#", "2"),
+					resource.TestCheckResourceAttr("truenas_nfs_share.test", "security.1", "KRB5"),
 				),
 			},
 			{
@@ -85,7 +93,7 @@ func TestAccNFSShare_mapall(t *testing.T) {
 	})
 }
 
-func testAccNFSShareMapallConfig(datasetName, mapallUser, mapallGroup string) string {
+func testAccNFSShareMapallConfig(datasetName, mapallUser, mapallGroup, securityHCL string) string {
 	return fmt.Sprintf(`
 resource "truenas_dataset" "fixture" {
   name = %q
@@ -95,9 +103,9 @@ resource "truenas_nfs_share" "test" {
   path         = truenas_dataset.fixture.mountpoint
   mapall_user  = %q
   mapall_group = %q
-  security     = ["SYS"]
+  security     = %s
 }
-`, datasetName, mapallUser, mapallGroup)
+`, datasetName, mapallUser, mapallGroup, securityHCL)
 }
 
 func testAccNFSShareConfig(datasetName, comment string, networks []string) string {

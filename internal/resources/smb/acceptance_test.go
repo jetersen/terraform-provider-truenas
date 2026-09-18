@@ -75,11 +75,20 @@ func TestAccSMBShare_audit(t *testing.T) {
 		CheckDestroy:             testAccCheckSMBShareDestroyed(shareName),
 		Steps: []resource.TestStep{
 			{
-				Config: acctest.ProviderConfig() + testAccSMBShareAuditConfig(datasetName, shareName, groupName),
+				Config: acctest.ProviderConfig() + testAccSMBShareAuditConfig(datasetName, shareName, groupName,
+					"enable = true\n    watch_list = [truenas_group.audit.name]"),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("truenas_smb_share.test", "audit.enable", "true"),
 					resource.TestCheckResourceAttr("truenas_smb_share.test", "audit.watch_list.#", "1"),
 					resource.TestCheckResourceAttr("truenas_smb_share.test", "audit.watch_list.0", groupName),
+				),
+			},
+			// In-place update: disable auditing (clears the watch_list requirement).
+			{
+				Config: acctest.ProviderConfig() + testAccSMBShareAuditConfig(datasetName, shareName, groupName,
+					"enable = false"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("truenas_smb_share.test", "audit.enable", "false"),
 				),
 			},
 			{
@@ -91,7 +100,7 @@ func TestAccSMBShare_audit(t *testing.T) {
 	})
 }
 
-func testAccSMBShareAuditConfig(datasetName, shareName, groupName string) string {
+func testAccSMBShareAuditConfig(datasetName, shareName, groupName, auditBody string) string {
 	return fmt.Sprintf(`
 resource "truenas_dataset" "test" {
   name = %q
@@ -109,11 +118,10 @@ resource "truenas_smb_share" "test" {
   name    = %q
   enabled = true
   audit = {
-    enable     = true
-    watch_list = [truenas_group.audit.name]
+    %s
   }
 }
-`, datasetName, groupName, shareName)
+`, datasetName, groupName, shareName, auditBody)
 }
 
 func testAccSMBShareConfig(datasetName, shareName, comment string, abe bool) string {

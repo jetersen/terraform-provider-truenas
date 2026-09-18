@@ -389,3 +389,99 @@ func TestISCSIExtentResponseToModel_AllFields(t *testing.T) {
 
 // strPtr is a helper to create a *string from a literal.
 func strPtr(s string) *string { return &s }
+
+// TestCoerceInt64 covers the filesize decoder's accepted shapes (the API
+// returns filesize as a JSON number or a numeric string).
+func TestCoerceInt64(t *testing.T) {
+	cases := []struct {
+		name string
+		in   any
+		want int64
+	}{
+		{"float64", float64(2048), 2048},
+		{"int64", int64(4096), 4096},
+		{"int", int(512), 512},
+		{"numeric string", "65536", 65536},
+		{"bad string", "notanumber", 0},
+		{"nil", nil, 0},
+		{"unexpected type", []int{1}, 0},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := coerceInt64(tc.in); got != tc.want {
+				t.Errorf("coerceInt64(%v) = %d, want %d", tc.in, got, tc.want)
+			}
+		})
+	}
+}
+
+// fileModel builds a minimal FILE-type extent model with everything optional
+// left null so apiPayload omits it.
+func fileExtentModel(filesize int64) *ISCSIExtentModel {
+	m := &ISCSIExtentModel{
+		Name:           types.StringValue("ext"),
+		Type:           types.StringValue("FILE"),
+		Path:           types.StringValue("/mnt/tank/x/e.img"),
+		Disk:           types.StringNull(),
+		Comment:        types.StringNull(),
+		Blocksize:      types.Int64Null(),
+		PBlocksize:     types.BoolNull(),
+		AvailThreshold: types.Int64Null(),
+		InsecureTPC:    types.BoolNull(),
+		Xen:            types.BoolNull(),
+		ReadOnly:       types.BoolNull(),
+		RPM:            types.StringNull(),
+		Enabled:        types.BoolNull(),
+	}
+	m.Filesize = types.Int64Value(filesize)
+	return m
+}
+
+// TestISCSIExtentApiPayload_Filesize verifies filesize is sent for FILE extents
+// when non-zero, omitted when zero, and never sent for DISK extents.
+func TestISCSIExtentApiPayload_Filesize(t *testing.T) {
+	ctx := context.Background()
+
+	p, _ := fileExtentModel(67108864).apiPayload(ctx)
+	if p["filesize"] != int64(67108864) {
+		t.Errorf("FILE filesize = %v, want 67108864", p["filesize"])
+	}
+
+	p, _ = fileExtentModel(0).apiPayload(ctx)
+	if _, ok := p["filesize"]; ok {
+		t.Errorf("FILE filesize=0 should be omitted, got %v", p["filesize"])
+	}
+
+	disk := fileExtentModel(67108864)
+	disk.Type = types.StringValue("DISK")
+	disk.Disk = types.StringValue("zvol/tank/v")
+	p, _ = disk.apiPayload(ctx)
+	if _, ok := p["filesize"]; ok {
+		t.Errorf("DISK extent should not send filesize, got %v", p["filesize"])
+	}
+}
+
+// TestISCSIExtentResponseToModel_Filesize verifies filesize decodes from either
+// a JSON number or a numeric string into the model.
+func TestISCSIExtentResponseToModel_Filesize(t *testing.T) {
+	ctx := context.Background()
+	for _, tc := range []struct {
+		name string
+		raw  any
+		want int64
+	}{
+		{"number", float64(2048), 2048},
+		{"string", "4096", 4096},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var m ISCSIExtentModel
+			api := &extentAPI{ID: 1, Name: "e", Type: "FILE", Path: "/mnt/tank/x/e.img", Filesize: tc.raw}
+			if d := responseToModel(ctx, api, &m); d.HasError() {
+				t.Fatalf("responseToModel: %v", d)
+			}
+			if m.Filesize.ValueInt64() != tc.want {
+				t.Errorf("Filesize = %d, want %d", m.Filesize.ValueInt64(), tc.want)
+			}
+		})
+	}
+}

@@ -10,6 +10,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 )
 
 // TestISCSITargetSchema verifies that the resource schema has the expected
@@ -288,5 +289,80 @@ func TestISCSITargetResponseToModel(t *testing.T) {
 	}
 	if len(an) != 1 || an[0] != "192.168.0.0/16" {
 		t.Errorf("AuthNetworks = %v, want [192.168.0.0/16]", an)
+	}
+}
+
+// TestISCSITargetApiPayload_IscsiParameters verifies the nested
+// iscsi_parameters block maps to the API's {"QueuedCommands": N} shape when
+// set, and is omitted when null.
+func TestISCSITargetApiPayload_IscsiParameters(t *testing.T) {
+	ctx := context.Background()
+
+	base := func(params types.Object) *ISCSITargetModel {
+		return &ISCSITargetModel{
+			Name:            types.StringValue("tgt"),
+			Alias:           types.StringNull(),
+			Mode:            types.StringNull(),
+			Groups:          types.ListNull(types.ObjectType{AttrTypes: groupsAttrTypes}),
+			AuthNetworks:    types.ListNull(types.StringType),
+			IscsiParameters: params,
+		}
+	}
+
+	obj, d := types.ObjectValueFrom(ctx, iscsiParamsAttrTypes, IscsiParametersModel{QueuedCommands: types.Int64Value(128)})
+	if d.HasError() {
+		t.Fatalf("build object: %v", d)
+	}
+	p, pd := base(obj).apiPayload(ctx)
+	if pd.HasError() {
+		t.Fatalf("apiPayload: %v", pd)
+	}
+	inner, ok := p["iscsi_parameters"].(map[string]any)
+	if !ok {
+		t.Fatalf("iscsi_parameters is %T, want map[string]any", p["iscsi_parameters"])
+	}
+	if inner["QueuedCommands"] != int64(128) {
+		t.Errorf("QueuedCommands = %v, want 128", inner["QueuedCommands"])
+	}
+
+	// null object → key omitted entirely.
+	p, _ = base(types.ObjectNull(iscsiParamsAttrTypes)).apiPayload(ctx)
+	if _, ok := p["iscsi_parameters"]; ok {
+		t.Errorf("null iscsi_parameters should be omitted, got %v", p["iscsi_parameters"])
+	}
+}
+
+// TestISCSITargetResponseToModel_IscsiParameters verifies the nested block
+// decodes: nil API value → null object; populated → object with queued_commands.
+func TestISCSITargetResponseToModel_IscsiParameters(t *testing.T) {
+	ctx := context.Background()
+
+	var m ISCSITargetModel
+	apiNil := &targetAPI{ID: 1, Name: "t", Mode: "ISCSI"}
+	if d := responseToModel(ctx, apiNil, &m); d.HasError() {
+		t.Fatalf("responseToModel nil: %v", d)
+	}
+	if !m.IscsiParameters.IsNull() {
+		t.Error("iscsi_parameters should be null when API omits it")
+	}
+
+	qc := int64(32)
+	apiSet := &targetAPI{ID: 2, Name: "t2", Mode: "ISCSI"}
+	apiSet.IscsiParameters = &struct {
+		QueuedCommands *int64 `json:"QueuedCommands"`
+	}{QueuedCommands: &qc}
+	var m2 ISCSITargetModel
+	if d := responseToModel(ctx, apiSet, &m2); d.HasError() {
+		t.Fatalf("responseToModel set: %v", d)
+	}
+	if m2.IscsiParameters.IsNull() {
+		t.Fatal("iscsi_parameters should be set")
+	}
+	var params IscsiParametersModel
+	if d := m2.IscsiParameters.As(ctx, &params, basetypes.ObjectAsOptions{}); d.HasError() {
+		t.Fatalf("As: %v", d)
+	}
+	if params.QueuedCommands.ValueInt64() != 32 {
+		t.Errorf("queued_commands = %d, want 32", params.QueuedCommands.ValueInt64())
 	}
 }

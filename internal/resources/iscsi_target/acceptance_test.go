@@ -68,9 +68,16 @@ func TestAccISCSITarget_params(t *testing.T) {
 		CheckDestroy:             testAccCheckISCSITargetDestroyed(name),
 		Steps: []resource.TestStep{
 			{
-				Config: acctest.ProviderConfig() + testAccISCSITargetParamsConfig(portalComment, name),
+				Config: acctest.ProviderConfig() + testAccISCSITargetParamsConfig(portalComment, name, 128),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("truenas_iscsi_target.test", "iscsi_parameters.queued_commands", "128"),
+				),
+			},
+			// In-place update: change the queued_commands value.
+			{
+				Config: acctest.ProviderConfig() + testAccISCSITargetParamsConfig(portalComment, name, 32),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("truenas_iscsi_target.test", "iscsi_parameters.queued_commands", "32"),
 				),
 			},
 			{
@@ -82,7 +89,7 @@ func TestAccISCSITarget_params(t *testing.T) {
 	})
 }
 
-func testAccISCSITargetParamsConfig(portalComment, name string) string {
+func testAccISCSITargetParamsConfig(portalComment, name string, queuedCommands int64) string {
 	return fmt.Sprintf(`
 resource "truenas_iscsi_portal" "fixture" {
   comment = %q
@@ -103,10 +110,10 @@ resource "truenas_iscsi_target" "test" {
     }
   ]
   iscsi_parameters = {
-    queued_commands = 128
+    queued_commands = %d
   }
 }
-`, portalComment, acctest.EndpointHost(), name)
+`, portalComment, acctest.EndpointHost(), name, queuedCommands)
 }
 
 func testAccISCSITargetConfig(portalComment, name, alias string) string {

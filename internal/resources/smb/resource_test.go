@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 )
 
 // TestSMBSchema verifies that the resource schema has the expected attributes
@@ -533,5 +534,100 @@ func TestResponseToModel_LegacyShare_RawJSONFixture(t *testing.T) {
 	}
 	if m.ID.ValueInt64() != 55 {
 		t.Errorf("ID = %v, want 55", m.ID.ValueInt64())
+	}
+}
+
+// TestSMBApiPayload_Audit verifies the audit block is emitted at the top level
+// (not nested under options) with its sub-fields when set.
+func TestSMBApiPayload_Audit(t *testing.T) {
+	ctx := context.Background()
+
+	m := baseLegacyModel()
+	auditObj, d := types.ObjectValueFrom(ctx, smbAuditAttrTypes, SMBAuditModel{
+		Enable:     types.BoolValue(true),
+		WatchList:  types.ListValueMust(types.StringType, []attr.Value{types.StringValue("grp")}),
+		IgnoreList: types.ListValueMust(types.StringType, []attr.Value{}),
+	})
+	if d.HasError() {
+		t.Fatalf("build audit object: %v", d)
+	}
+	m.Audit = auditObj
+
+	payload, pd := m.apiPayload(ctx)
+	if pd.HasError() {
+		t.Fatalf("apiPayload: %v", pd)
+	}
+	audit, ok := payload["audit"].(map[string]any)
+	if !ok {
+		t.Fatalf("payload[audit] is %T, want map[string]any", payload["audit"])
+	}
+	if audit["enable"] != true {
+		t.Errorf("audit.enable = %v, want true", audit["enable"])
+	}
+	wl, ok := audit["watch_list"].([]string)
+	if !ok || len(wl) != 1 || wl[0] != "grp" {
+		t.Errorf("audit.watch_list = %v, want [grp]", audit["watch_list"])
+	}
+	// audit lives at the top level, never inside options.
+	if opts, ok := payload["options"].(map[string]any); ok {
+		if _, bad := opts["audit"]; bad {
+			t.Error("audit must not be nested under options")
+		}
+	}
+}
+
+// TestSMBApiPayload_AuditOmittedWhenNull verifies an unset audit block is not
+// sent (baseLegacyModel leaves Audit null).
+func TestSMBApiPayload_AuditOmittedWhenNull(t *testing.T) {
+	ctx := context.Background()
+	m := baseLegacyModel()
+	payload, _ := m.apiPayload(ctx)
+	if _, ok := payload["audit"]; ok {
+		t.Errorf("unset audit should be omitted, got %v", payload["audit"])
+	}
+}
+
+// TestSMBResponseToModel_Audit verifies audit decodes to a populated object when
+// present and to the default (enable=false, empty lists) object when absent.
+func TestSMBResponseToModel_Audit(t *testing.T) {
+	ctx := context.Background()
+
+	api := &smbAPI{ID: 1, Path: "/mnt/tank/s", Name: "s", Purpose: legacySharePurpose}
+	api.Audit = &struct {
+		Enable     bool     `json:"enable"`
+		WatchList  []string `json:"watch_list"`
+		IgnoreList []string `json:"ignore_list"`
+	}{Enable: true, WatchList: []string{"grp"}, IgnoreList: nil}
+
+	var m SMBModel
+	if d := responseToModel(ctx, api, &m); d.HasError() {
+		t.Fatalf("responseToModel: %v", d)
+	}
+	var a SMBAuditModel
+	if d := m.Audit.As(ctx, &a, basetypes.ObjectAsOptions{}); d.HasError() {
+		t.Fatalf("Audit.As: %v", d)
+	}
+	if !a.Enable.ValueBool() {
+		t.Error("audit.enable should be true")
+	}
+	var wl []string
+	_ = a.WatchList.ElementsAs(ctx, &wl, false)
+	if len(wl) != 1 || wl[0] != "grp" {
+		t.Errorf("watch_list = %v, want [grp]", wl)
+	}
+
+	// Absent audit → default object, not null.
+	apiNo := &smbAPI{ID: 2, Path: "/mnt/tank/s2", Name: "s2", Purpose: legacySharePurpose}
+	var m2 SMBModel
+	if d := responseToModel(ctx, apiNo, &m2); d.HasError() {
+		t.Fatalf("responseToModel: %v", d)
+	}
+	if m2.Audit.IsNull() {
+		t.Fatal("audit should be a default object, not null")
+	}
+	var a2 SMBAuditModel
+	_ = m2.Audit.As(ctx, &a2, basetypes.ObjectAsOptions{})
+	if a2.Enable.ValueBool() {
+		t.Error("default audit.enable should be false")
 	}
 }
