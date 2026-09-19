@@ -43,6 +43,16 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   intercepting peer can force the plaintext-key fallback that SCRAM
   otherwise prevents).
 
+### Documentation
+- `truenas_pool` / `truenas_dataset` examples: when a configuration manages a
+  pool and datasets together, the dataset name now references the pool
+  (`name = "${truenas_pool.tank.name}/media"`) so Terraform orders the pool
+  before its datasets instead of racing them (a hardcoded name gives no
+  dependency edge and fails with a parent-not-found error on the first apply,
+  succeeding only on the second). Also corrects the `truenas_pool` example's
+  `topology` to the nested-attribute assignment form (`topology = { ... }`),
+  which the block form (`topology { ... }`) is not valid for.
+
 ### Fixed
 - `truenas_ipmi_lan`: reading a statically-addressed BMC LAN channel back right
   after a change no longer produces a spurious perpetual diff. The BMC LAN
