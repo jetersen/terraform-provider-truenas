@@ -333,3 +333,50 @@ func TestPoolApiPayload_CacheAndSpares(t *testing.T) {
 		t.Error("must not use singular \"spare\" key")
 	}
 }
+
+// TestPoolResponseToModel_SingleDiskVdevs covers the read path for single-disk
+// cache/log/spare vdevs, which TrueNAS reports with the device at the vdev's
+// top level (empty children) and type "DISK". vdevDisks must fall back to
+// vdev.disk, and a "DISK" log vdev must normalize to "STRIPE" so it round-trips
+// with the create config.
+func TestPoolResponseToModel_SingleDiskVdevs(t *testing.T) {
+	ctx := context.Background()
+
+	api := &poolAPI{ID: 7, Name: "tank", Status: "ONLINE", Healthy: true}
+	api.AutoTrim.Parsed = false
+	api.Topology.Data = []poolVdev{{Type: "MIRROR", Children: []poolDisk{{Disk: "sdb"}, {Disk: "sdc"}}}}
+	// single-disk log/cache/spare: disk at top level, empty children, type DISK
+	api.Topology.Log = []poolVdev{{Type: "DISK", Disk: "sdd"}}
+	api.Topology.Cache = []poolVdev{{Type: "DISK", Disk: "sdf"}}
+	api.Topology.Spare = []poolVdev{{Type: "DISK", Disk: "sdg"}}
+
+	var m PoolModel
+	if diags := responseToModel(ctx, api, &m); diags.HasError() {
+		t.Fatalf("responseToModel: %v", diags)
+	}
+
+	// log: type normalized DISK->STRIPE, disk read from vdev.disk.
+	var logVdevs []VdevModel
+	if diags := m.Topology.Log.ElementsAs(ctx, &logVdevs, false); diags.HasError() {
+		t.Fatalf("log ElementsAs: %v", diags)
+	}
+	if len(logVdevs) != 1 || logVdevs[0].Type.ValueString() != "STRIPE" {
+		t.Fatalf("log vdev = %+v, want one STRIPE", logVdevs)
+	}
+	var logDisks []string
+	_ = logVdevs[0].Disks.ElementsAs(ctx, &logDisks, false)
+	if len(logDisks) != 1 || logDisks[0] != "sdd" {
+		t.Errorf("log disks = %v, want [sdd]", logDisks)
+	}
+
+	// cache/spare: flat disk-name lists, read from vdev.disk.
+	var cache, spare []string
+	_ = m.Topology.Cache.ElementsAs(ctx, &cache, false)
+	_ = m.Topology.Spare.ElementsAs(ctx, &spare, false)
+	if len(cache) != 1 || cache[0] != "sdf" {
+		t.Errorf("cache = %v, want [sdf]", cache)
+	}
+	if len(spare) != 1 || spare[0] != "sdg" {
+		t.Errorf("spare = %v, want [sdg]", spare)
+	}
+}

@@ -115,6 +115,10 @@ type poolAPI struct {
 type poolVdev struct {
 	Type     string     `json:"type"`
 	Children []poolDisk `json:"children"`
+	// Disk is set on a single-disk vdev (a lone cache/log/spare device, or a
+	// single-disk data vdev), where the device is reported at the vdev's top
+	// level with an empty children array and type "DISK".
+	Disk string `json:"disk"`
 }
 
 type poolDisk struct {
@@ -165,7 +169,7 @@ func buildTopology(ctx context.Context, api *poolAPI) (TopologyModel, diag.Diagn
 		disks := vdevDisks(v)
 		diskList, d := types.ListValueFrom(ctx, types.StringType, disks)
 		diags.Append(d...)
-		data[i] = VdevModel{Type: types.StringValue(v.Type), Disks: diskList}
+		data[i] = VdevModel{Type: types.StringValue(vdevType(v)), Disks: diskList}
 	}
 	dataList, d := types.ListValueFrom(ctx, vdevObjectType, data)
 	diags.Append(d...)
@@ -177,7 +181,7 @@ func buildTopology(ctx context.Context, api *poolAPI) (TopologyModel, diag.Diagn
 		disks := vdevDisks(v)
 		diskList, d := types.ListValueFrom(ctx, types.StringType, disks)
 		diags.Append(d...)
-		logVdevs[i] = VdevModel{Type: types.StringValue(v.Type), Disks: diskList}
+		logVdevs[i] = VdevModel{Type: types.StringValue(vdevType(v)), Disks: diskList}
 	}
 	logList, dl := types.ListValueFrom(ctx, vdevObjectType, logVdevs)
 	diags.Append(dl...)
@@ -266,13 +270,33 @@ func autotrimStr(on bool) string {
 	return "OFF"
 }
 
-// vdevDisks extracts the flat list of disk names from a vdev's children.
+// vdevDisks extracts the flat list of disk names from a vdev. Multi-disk vdevs
+// (MIRROR/RAIDZ) list their members under children; a single-disk vdev
+// (lone cache/log/spare, or a single-disk data vdev) instead reports the device
+// at the vdev's top level with empty children, so fall back to that.
 func vdevDisks(v poolVdev) []string {
+	if len(v.Children) == 0 {
+		if v.Disk != "" {
+			return []string{v.Disk}
+		}
+		return []string{}
+	}
 	disks := make([]string, len(v.Children))
 	for i, c := range v.Children {
 		disks[i] = c.Disk
 	}
 	return disks
+}
+
+// vdevType normalizes a vdev's reported type for round-tripping with the create
+// API: TrueNAS reports a single-disk stripe vdev as type "DISK", but
+// pool.create accepts "STRIPE" for that shape. Multi-disk types (MIRROR,
+// RAIDZ*) are returned unchanged.
+func vdevType(v poolVdev) string {
+	if v.Type == "DISK" {
+		return "STRIPE"
+	}
+	return v.Type
 }
 
 // apiPayload builds the JSON payload for pool.create.

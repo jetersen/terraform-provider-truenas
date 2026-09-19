@@ -43,6 +43,22 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   intercepting peer can force the plaintext-key fallback that SCRAM
   otherwise prevents).
 
+### Fixed
+- `truenas_pool`: pool creation and lifecycle now work end-to-end (verified on
+  live drives). Fixes a cascade of bugs, none previously covered by a live
+  create test:
+  - a "Value Conversion Error" crash when a config omitted the `log` vdev
+    (topology vdev lists now hold null/unknown).
+  - `pool.create` payload mismatches: `autotrim` isn't a create field (now
+    applied via a follow-up update), the topology spares key is `spares` (not
+    `spare`), and cache vdevs use `type = "STRIPE"`.
+  - deletion used a nonexistent `pool.delete` (now `pool.export` with
+    `destroy`), and import failed for the numeric id (now imports by id or
+    name).
+  - reading a single-disk cache/log/spare vdev back (device is reported at the
+    vdev top level with empty children; single-disk log normalizes
+    `DISK`→`STRIPE`).
+
 <!--
 Release process:
 1. Move the Unreleased entries under a new "## [X.Y.Z] - YYYY-MM-DD" heading.

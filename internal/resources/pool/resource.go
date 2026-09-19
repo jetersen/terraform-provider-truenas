@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
@@ -168,15 +169,28 @@ func (r *PoolResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 		return
 	}
 
-	_, err := r.client.CallJob(ctx, "pool.delete", state.ID.ValueInt64())
+	// TrueNAS has no pool.delete; a pool is destroyed via pool.export with
+	// destroy=true. cascade=true removes attachments (shares, etc.) that would
+	// otherwise block the destroy — appropriate here since the pool is being
+	// permanently torn down.
+	_, err := r.client.CallJob(ctx, "pool.export", state.ID.ValueInt64(),
+		map[string]any{"cascade": true, "destroy": true})
 	if err != nil && !client.IsNotFound(err) {
 		resp.Diagnostics.AddError("Delete pool failed", err.Error())
 	}
 }
 
 func (r *PoolResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	// Import by pool name: query for pool with matching name, take first result.
-	raw, err := r.client.CallRead(ctx, "pool.query", [][]any{{"name", "=", req.ID}})
+	// Import by pool id (integer) or name — the id form is what
+	// ImportStateVerify uses (the resource id is the numeric pool id), while a
+	// name is friendlier for a manual `terraform import`.
+	var filter [][]any
+	if id, err := strconv.ParseInt(req.ID, 10, 64); err == nil {
+		filter = [][]any{{"id", "=", id}}
+	} else {
+		filter = [][]any{{"name", "=", req.ID}}
+	}
+	raw, err := r.client.CallRead(ctx, "pool.query", filter)
 	if err != nil {
 		resp.Diagnostics.AddError("Import pool failed", err.Error())
 		return
@@ -190,7 +204,7 @@ func (r *PoolResource) ImportState(ctx context.Context, req resource.ImportState
 
 	if len(pools) == 0 {
 		resp.Diagnostics.AddError("Pool not found",
-			fmt.Sprintf("no pool named %q found on TrueNAS", req.ID))
+			fmt.Sprintf("no pool with id or name %q found on TrueNAS", req.ID))
 		return
 	}
 
