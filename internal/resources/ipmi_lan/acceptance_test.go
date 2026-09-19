@@ -37,11 +37,12 @@ func firstIPMIChannel(t *testing.T) int64 {
 
 // TestAccIPMILanDataSource_basic reads a channel's current LAN
 // configuration through the truenas_ipmi_lan datasource only. It never
-// writes. Gated by acctest.HACheck: requires TRUENAS_HA=1,
-// TRUENAS_HA_ALLOWED_ENDPOINT matching TRUENAS_ENDPOINT, and a live
-// failover.licensed probe — see acctest.HACheck's doc comment.
+// writes. Gated by acctest.IPMICheck: requires TRUENAS_IPMI=1 and
+// TRUENAS_IPMI_ALLOWED_ENDPOINT matching TRUENAS_ENDPOINT — see
+// acctest.IPMICheck's doc comment. IPMI LAN is a plain BMC feature, so this
+// no longer requires an Enterprise HA license (any box with a BMC qualifies).
 func TestAccIPMILanDataSource_basic(t *testing.T) {
-	acctest.HACheck(t)
+	acctest.IPMICheck(t)
 	channel := firstIPMIChannel(t)
 
 	resource.Test(t, resource.TestCase{
@@ -111,21 +112,26 @@ func readIPMILanOriginal(t *testing.T, channel int64) ipmiLanOriginal {
 // cannot distinguish an explicitly-null attribute from an omitted one, so
 // the config-driven resource itself can never send an explicit null — see
 // model.go's updatePayload doc comment), which is exactly the state
-// TestAccIPMILan_setAndRestoreVlan's channel was in before the test ran on
-// the disposable Enterprise HA box this was developed against. Registered
-// via t.Cleanup BEFORE the test's own mutating Terraform apply, per this
-// task's safety requirement: the BMC LAN channel must never be left in a
-// different state than it started in.
+// TestAccIPMILan_setAndRestoreVlan's channel was in before the test ran.
+// Registered via t.Cleanup BEFORE the test's own mutating Terraform apply,
+// per this task's safety requirement: the BMC LAN channel must never be left
+// in a different state than it started in.
 //
-// It then POLLS ipmi.lan.query (mirroring resource.go's
-// lookupChannelSettled) until ip_address/subnet_mask actually match orig,
-// rather than trusting a single successful ipmi.lan.update call:
-// PROBED LIVE during this task's development, a static-IP ipmi.lan.update
-// call that itself succeeded was followed by ip_address/subnet_mask
-// transiently reading back "0.0.0.0"/"0.0.0.0" — real BMC LAN controller
-// settle-time behavior after a config change, not an error — before
-// stabilizing back to the values just sent moments later. Only a genuinely
-// unresolved mismatch after the full retry budget is a t.Fatal.
+// It issues the restoring update EXACTLY ONCE, then POLLS ipmi.lan.query
+// read-only until ip_address/subnet_mask actually match orig. Re-sending
+// ipmi.lan.update on every poll iteration (an earlier version of this helper
+// did) restarts the BMC LAN controller's settle-time window each time and can
+// keep it from ever converging: live-traced against .68 channel 1, a static
+// ipmi.lan.update is followed by ~10-15s of the controller FLAPPING
+// ip_address/subnet_mask through "0.0.0.0" (under both a "static" and an
+// "unspecified" ip_address_source) before it stabilizes to the values just
+// sent — see resource.go's settlePollInterval / transientZeroRead doc
+// comments for the same behavior the resource's own reads wait out. Sending
+// once and polling lets that single settle window run to completion. The poll
+// budget is deliberately generous (75s) because a full test run hammers the
+// channel with several updates before this cleanup runs, which can lengthen
+// the final settle. Only a genuinely unresolved mismatch after the whole
+// budget is a t.Fatal.
 func restoreIPMILanVlan(t *testing.T, channel int64, orig ipmiLanOriginal) {
 	t.Helper()
 	dhcp := isDHCPSource(orig.IPAddressSource)
@@ -141,28 +147,30 @@ func restoreIPMILanVlan(t *testing.T, channel int64, orig ipmiLanOriginal) {
 		payload["vlan"] = nil
 	}
 
+	if _, err := acctest.RestoreCall(context.Background(), "ipmi.lan.update", channel, payload); err != nil {
+		t.Fatalf("RESTORE FAILED for IPMI LAN channel %d: ipmi.lan.update: %v", channel, err)
+	}
+	// A DHCP channel has no deterministic address to converge to (the BMC
+	// takes whatever its DHCP server hands out), so there is nothing to poll
+	// for — the single update above is the whole restore.
+	if dhcp {
+		return
+	}
+
 	const (
-		attempts = 8
+		attempts = 25
 		interval = 3 * time.Second
 	)
-	var lastErr error
+	var last ipmiLanOriginal
 	for attempt := 1; attempt <= attempts; attempt++ {
-		if _, err := acctest.RestoreCall(context.Background(), "ipmi.lan.update", channel, payload); err != nil {
-			lastErr = err
-			time.Sleep(interval)
-			continue
-		}
 		time.Sleep(interval)
-
-		cur := readIPMILanOriginal(t, channel)
-		if dhcp || (cur.IPAddress == orig.IPAddress && cur.SubnetMask == orig.SubnetMask) {
+		last = readIPMILanOriginal(t, channel)
+		if last.IPAddress == orig.IPAddress && last.SubnetMask == orig.SubnetMask {
 			return
 		}
-		lastErr = fmt.Errorf("ip_address/subnet_mask not yet settled to original (got %q/%q, want %q/%q)",
-			cur.IPAddress, cur.SubnetMask, orig.IPAddress, orig.SubnetMask)
 	}
-	t.Fatalf("RESTORE FAILED for IPMI LAN channel %d after %d attempts (BMC LAN config may not match its original state): %v",
-		channel, attempts, lastErr)
+	t.Fatalf("RESTORE FAILED for IPMI LAN channel %d after %d polls (~%ds): ip_address/subnet_mask not settled to original (got %q/%q, want %q/%q)",
+		channel, attempts, attempts*int(interval/time.Second), last.IPAddress, last.SubnetMask, orig.IPAddress, orig.SubnetMask)
 }
 
 func isDHCPSource(ipAddressSource string) bool {
@@ -188,10 +196,11 @@ func isDHCPSource(ipAddressSource string) bool {
 // remains callable to correct it regardless — which is exactly what the
 // t.Cleanup restore does, unconditionally, the moment this test ends.
 //
-// Gated by acctest.HACheck (TRUENAS_HA=1, endpoint guard, live
-// failover.licensed probe) AND acctest.DisruptiveCheck (TRUENAS_DISRUPTIVE=1).
+// Gated by acctest.IPMICheck (TRUENAS_IPMI=1, TRUENAS_IPMI_ALLOWED_ENDPOINT
+// endpoint guard) AND acctest.DisruptiveCheck (TRUENAS_DISRUPTIVE=1). No
+// Enterprise HA license is required — IPMI LAN is a plain BMC feature.
 func TestAccIPMILan_setAndRestoreVlan(t *testing.T) {
-	acctest.HACheck(t)
+	acctest.IPMICheck(t)
 	acctest.DisruptiveCheck(t)
 
 	channel := firstIPMIChannel(t)

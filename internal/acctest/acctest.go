@@ -283,6 +283,38 @@ func HACheck(t *testing.T) {
 	}
 }
 
+// IPMICheck gates tests that exercise a box's BMC LAN configuration via the
+// truenas_ipmi_lan resource/datasource. IPMI LAN is a baseboard-management-
+// controller feature present on any physical box with a BMC; it is unrelated
+// to Enterprise HA (these tests were originally gated behind HACheck only
+// because the sole BMC-equipped disposable box available then happened to be
+// an HA pair). It runs PreCheck and then skips unless TRUENAS_IPMI=1 is set.
+//
+// When TRUENAS_IPMI=1 it additionally enforces a disposable-box guard,
+// mirroring DSCheck/HACheck's: TRUENAS_IPMI_ALLOWED_ENDPOINT must be set and
+// must equal Endpoint() exactly, else t.Fatal. Any test that mutates BMC LAN
+// state (e.g. toggling a channel's 802.1Q vlan) is layered further behind
+// DisruptiveCheck; this guard is the outer safety net ensuring such a test
+// can only ever run against a box explicitly designated for it, never a box
+// reached by accident through an ambient TRUENAS_ENDPOINT.
+func IPMICheck(t *testing.T) {
+	t.Helper()
+	PreCheck(t)
+	if os.Getenv("TRUENAS_IPMI") != "1" {
+		t.Skip("Set TRUENAS_IPMI=1 to run IPMI LAN (BMC) acceptance tests")
+	}
+	allowed := os.Getenv("TRUENAS_IPMI_ALLOWED_ENDPOINT")
+	if allowed == "" {
+		t.Fatal("TRUENAS_IPMI=1 requires TRUENAS_IPMI_ALLOWED_ENDPOINT to be set to the target box's " +
+			"endpoint, as a guard against accidentally reconfiguring a BMC LAN channel on a box that " +
+			"wasn't explicitly designated for IPMI testing")
+	}
+	if allowed != Endpoint() {
+		t.Fatalf("TRUENAS_IPMI_ALLOWED_ENDPOINT (%q) does not match TRUENAS_ENDPOINT (%q): refusing to run "+
+			"IPMI LAN acceptance tests against a box that isn't the designated IPMI test box", allowed, Endpoint())
+	}
+}
+
 // ACMECheck gates the live ACME issuance acceptance test
 // (TestAccCertificate_acmeIssuance), which drives a real certificate order
 // end to end against an ACME CA (a Pebble test server) using the DNS-01

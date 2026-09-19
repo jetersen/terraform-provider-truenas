@@ -117,6 +117,83 @@ func (r *IPMILanResource) lookupChannelSettled(ctx context.Context, channel int6
 	return api, nil
 }
 
+// transientZeroRead reports whether a freshly-read channel is showing the
+// BMC LAN controller's all-zero settle-time transient rather than a real
+// steady state: ip_address_source is NOT "dhcp" (a DHCP channel legitimately
+// has whatever its server hands out, including transiently nothing) yet
+// ip_address or subnet_mask reads the all-zero "0.0.0.0".
+//
+// Live trace (.68 channel 1, immediately after an ipmi.lan.update that
+// changed "vlan"): the controller FLAPS for ~10-15s, cycling through BOTH
+// {"static","0.0.0.0"} AND {"unspecified","0.0.0.0"} reads before settling
+// back to its real {"static","192.168.1.103"} — see settlePollInterval's doc
+// comment. So the transient is not confined to a "static" source; it must be
+// recognized under "unspecified" too.
+//
+// This predicate alone cannot tell that transient apart from a channel that
+// is GENUINELY unconfigured — channel 8 on .68 rests permanently at
+// {"unspecified","0.0.0.0"} (see model.go's isDHCP doc comment). That
+// ambiguity is resolved by the caller, not here: lookupChannelReadSettled
+// only waits it out when it has a reason to expect a real address (its
+// waitOutZero argument), so a genuinely-unconfigured channel is never made to
+// poll on every ordinary refresh.
+func transientZeroRead(api *ipmiLanAPI) bool {
+	if isDHCP(api.IPAddressSource) {
+		return false
+	}
+	return api.IPAddress == "0.0.0.0" || api.SubnetMask == "0.0.0.0"
+}
+
+// lookupChannelReadSettled reads a channel for Read/refresh/import, optionally
+// retrying past the all-zero settle transient (transientZeroRead) on the same
+// budget as lookupChannelSettled.
+//
+// waitOutZero MUST be set only when the caller has a reason to expect a real
+// (non-zero) address to converge to, so a genuinely-unconfigured channel that
+// legitimately rests at "0.0.0.0" (e.g. .68's channel 8) is never made to
+// burn the full retry budget on an ordinary refresh:
+//   - Read passes true only when the PRIOR Terraform state was a configured
+//     static channel (a real ip in state that just read back all-zero can
+//     only be the transient).
+//   - ImportState passes true unconditionally: it has no prior state, so it
+//     waits out a possible flap once; a truly-unconfigured channel simply
+//     costs one full budget at import time (a rare, manual operation).
+//
+// It converges on ANY settled non-zero read, not a specific target, so an
+// out-of-band change to a different static address is still surfaced as drift
+// (that read is non-zero, so it returns immediately) rather than masked.
+func (r *IPMILanResource) lookupChannelReadSettled(ctx context.Context, channel int64, waitOutZero bool) (*ipmiLanAPI, error) {
+	var api *ipmiLanAPI
+	var err error
+	for attempt := 1; attempt <= settlePollAttempts; attempt++ {
+		api, err = r.lookupChannel(ctx, channel)
+		if err != nil {
+			return nil, err
+		}
+		if !waitOutZero || !transientZeroRead(api) {
+			return api, nil
+		}
+		if attempt < settlePollAttempts {
+			time.Sleep(settlePollInterval)
+		}
+	}
+	// Best effort: return the last read even if it never converged, rather
+	// than fail — the next refresh picks up the box's true settled state.
+	return api, nil
+}
+
+// priorStateIsStatic reports whether a channel's prior Terraform state
+// described a configured static address, so a subsequent all-zero read can
+// only be the settle transient (transientZeroRead) rather than the channel's
+// real state. See lookupChannelReadSettled's waitOutZero contract.
+func priorStateIsStatic(state *IPMILanModel) bool {
+	if state.DHCP.ValueBool() {
+		return false
+	}
+	ip := state.IPAddress.ValueString()
+	return ip != "" && ip != "0.0.0.0"
+}
+
 func (r *IPMILanResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var plan IPMILanModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
@@ -171,7 +248,7 @@ func (r *IPMILanResource) Read(ctx context.Context, req resource.ReadRequest, re
 		return
 	}
 
-	api, err := r.lookupChannel(ctx, state.Channel.ValueInt64())
+	api, err := r.lookupChannelReadSettled(ctx, state.Channel.ValueInt64(), priorStateIsStatic(&state))
 	if err != nil {
 		if client.IsNotFound(err) {
 			resp.State.RemoveResource(ctx)
@@ -285,7 +362,7 @@ func (r *IPMILanResource) ImportState(ctx context.Context, req resource.ImportSt
 		return
 	}
 
-	api, err := r.lookupChannel(ctx, channel)
+	api, err := r.lookupChannelReadSettled(ctx, channel, true)
 	if err != nil {
 		resp.Diagnostics.AddError("Import IPMI LAN channel failed", err.Error())
 		return

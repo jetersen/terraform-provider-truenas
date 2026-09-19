@@ -44,6 +44,14 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   otherwise prevents).
 
 ### Fixed
+- `truenas_ipmi_lan`: reading a statically-addressed BMC LAN channel back right
+  after a change no longer produces a spurious perpetual diff. The BMC LAN
+  controller flaps `ip_address`/`subnet_mask` through `0.0.0.0` (under both a
+  `static` and an `unspecified` source) for 10–15s while it settles after any
+  `ipmi.lan.update`; the resource's Read and Import now wait out that transient
+  when the channel is a configured static address, converging on any settled
+  non-zero read (so a genuine out-of-band change is still detected as drift).
+  Verified live end-to-end (apply + refresh + import) on a physical BMC.
 - `truenas_network_config`: create/update no longer fails on a box that leaves
   `ipv6gateway` or a `nameserver2`/`nameserver3` slot empty (the common case).
   Empty gateway/nameserver fields were sent as JSON `null`, which TrueNAS
