@@ -5,6 +5,7 @@ package cloudsync_credentials
 
 import (
 	"encoding/json"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -76,6 +77,21 @@ func providerDrifted(stateProvider, apiProvider map[string]any) bool {
 		av, ok := apiProvider[k]
 		if !ok {
 			return true
+		}
+		// TrueNAS normalizes the S3 "endpoint" by appending a trailing slash
+		// on read-back (e.g. "http://host:9000" -> "http://host:9000/"). A
+		// slash-only difference is server normalization, not real drift — so
+		// any custom-endpoint S3 credential (MinIO, SeaweedFS, Wasabi, …)
+		// would otherwise never converge.
+		if k == "endpoint" {
+			if sv, sok := v.(string); sok {
+				if avs, aok := av.(string); aok {
+					if strings.TrimRight(sv, "/") != strings.TrimRight(avs, "/") {
+						return true
+					}
+					continue
+				}
+			}
 		}
 		sb, _ := json.Marshal(v)
 		ab, _ := json.Marshal(av)

@@ -287,3 +287,28 @@ func TestSchema_NameRequired(t *testing.T) {
 		t.Error("'name' should be Required")
 	}
 }
+
+// TestProviderDrifted_EndpointTrailingSlash verifies a trailing-slash-only
+// endpoint difference (TrueNAS normalizes the S3 endpoint on read-back) is not
+// treated as drift, while a genuinely different endpoint still is.
+func TestProviderDrifted_EndpointTrailingSlash(t *testing.T) {
+	cases := []struct {
+		name      string
+		stateEP   string
+		apiEP     string
+		wantDrift bool
+	}{
+		{"trailing slash added by server", "http://h:9000", "http://h:9000/", false},
+		{"identical", "http://h:9000/", "http://h:9000/", false},
+		{"genuinely different host", "http://h:9000", "http://other:9000/", true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			st := map[string]any{"type": "S3", "access_key_id": "AKIA...", "endpoint": tc.stateEP}
+			api := map[string]any{"type": "S3", "access_key_id": "AKIA...", "endpoint": tc.apiEP}
+			if got := providerDrifted(st, api); got != tc.wantDrift {
+				t.Errorf("providerDrifted = %v, want %v", got, tc.wantDrift)
+			}
+		})
+	}
+}

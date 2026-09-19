@@ -44,6 +44,12 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   otherwise prevents).
 
 ### Fixed
+- `truenas_cloudsync_credentials`: a custom S3 `endpoint` (MinIO, SeaweedFS,
+  Wasabi, Backblaze, and any other S3-compatible provider) no longer causes a
+  perpetual diff. TrueNAS appends a trailing slash to the endpoint on
+  read-back; the drift check now treats a trailing-slash-only difference as
+  server normalization rather than a change. Verified live against a local
+  S3-compatible endpoint.
 - `truenas_pool`: pool creation and lifecycle now work end-to-end (verified on
   live drives). Fixes a cascade of bugs, none previously covered by a live
   create test:
