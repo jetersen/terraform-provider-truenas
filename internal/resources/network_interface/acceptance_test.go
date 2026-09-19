@@ -6,33 +6,36 @@ package network_interface_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"os"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/truenas/terraform-provider-truenas/internal/acctest"
 )
 
 // TestAccNetworkInterface_bridge would create a BRIDGE interface (br999)
 // with no members and no aliases, verify it, then destroy it.
 //
-// It is deliberately kept skipped unconditionally (independent of TF_ACC):
 // truenas_network_interface changes are staged and then committed with an
 // auto-rollback safety window against the box's live networking stack
-// (interface.commit / interface.checkin). Even a self-contained BRIDGE
-// create/destroy cycle carries a global commit/checkin risk — a failed or
-// interrupted commit can leave the box's network configuration in a
-// pending, uncommitted, or rolled-back state affecting all interfaces, not
-// just the one under test. Enable this manually only against a disposable
-// test host you are prepared to lose network access to.
+// (interface.commit / interface.checkin). A memberless, IP-less BRIDGE is
+// inert and never touches the management interface, but the commit/checkin
+// still exercises the box's global network apply. So this is gated behind
+// TRUENAS_TEST_NET_INTERFACE (not just TF_ACC) — run it only against a
+// disposable box you are prepared to lose network access to. The 60s
+// auto-rollback is the backstop if a commit ever severs connectivity.
 func TestAccNetworkInterface_bridge(t *testing.T) {
-	t.Skip("Skipped unconditionally: truenas_network_interface create/destroy carries a " +
-		"global commit/checkin risk to the box's live networking stack (interface.commit " +
-		"auto-rollback affects all interfaces, not just the one under test). Enable manually " +
-		"only against a disposable test host.")
+	if os.Getenv("TRUENAS_TEST_NET_INTERFACE") == "" {
+		t.Skip("set TRUENAS_TEST_NET_INTERFACE=1 (on a disposable box) to run the network_interface create/destroy test")
+	}
+	acctest.PreCheck(t)
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { acctest.PreCheck(t) },
 		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckInterfaceDestroyed("br999"),
 		Steps: []resource.TestStep{
 			{
 				Config: acctest.ProviderConfig() + testAccNetworkInterfaceBridgeConfig(),
@@ -49,6 +52,26 @@ func TestAccNetworkInterface_bridge(t *testing.T) {
 			},
 		},
 	})
+}
+
+// testAccCheckInterfaceDestroyed verifies the named interface is gone.
+func testAccCheckInterfaceDestroyed(name string) resource.TestCheckFunc {
+	return func(_ *terraform.State) error {
+		raw, err := acctest.Client().Call(context.Background(), "interface.query", [][]any{{"id", "=", name}})
+		if err != nil {
+			return fmt.Errorf("querying interface %s: %w", name, err)
+		}
+		var results []struct {
+			ID string `json:"id"`
+		}
+		if err := json.Unmarshal(raw, &results); err != nil {
+			return fmt.Errorf("parsing interface.query: %w", err)
+		}
+		if len(results) > 0 {
+			return fmt.Errorf("interface %s still exists", name)
+		}
+		return nil
+	}
 }
 
 func testAccNetworkInterfaceBridgeConfig() string {
