@@ -6,6 +6,8 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.8] - 2026-09-19
+
 ### Documentation
 - Swept every resource example that consumes a dataset to reference the dataset
   resource rather than hardcoding its path or name, so a single `terraform
