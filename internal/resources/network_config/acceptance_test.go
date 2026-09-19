@@ -4,6 +4,9 @@
 package network_config_test
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
 	"os"
 	"testing"
 
@@ -64,6 +67,74 @@ data "truenas_network_config" "test" {}
 //     can cut off network connectivity.
 //  3. Use ImportState with ImportStateId "network_config" to verify import
 //     normalizes any ID to the fixed singleton ID.
+//
+// It is gated behind TRUENAS_TEST_NETWORK_CONFIG (not just TF_ACC). It touches
+// ONLY `hostname`: updatePayload sends only the fields set in config, so DNS,
+// gateways, and domains are never rewritten and connectivity is preserved (a
+// hostname change does not drop the box's IP). A t.Cleanup restores the box's
+// original hostname regardless of outcome. Run only against a disposable box.
 func TestAccNetworkConfig_basic(t *testing.T) {
-	t.Skip("truenas_network_config controls the LIVE network configuration (hostname/DNS/gateways); skipped to avoid cutting off connectivity to the target box. See comment on TestAccNetworkConfig_basic for how to safely enable this against a disposable instance.")
+	if os.Getenv("TRUENAS_TEST_NETWORK_CONFIG") == "" {
+		t.Skip("set TRUENAS_TEST_NETWORK_CONFIG=1 (on a disposable box) to run the network_config set/restore test")
+	}
+	acctest.PreCheck(t)
+
+	orig := currentHostname(t)
+	t.Cleanup(func() {
+		if _, err := acctest.Client().Call(context.Background(), "network.configuration.update",
+			map[string]any{"hostname": orig}); err != nil {
+			t.Logf("WARNING: failed to restore hostname=%q: %v", orig, err)
+		}
+	})
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { acctest.PreCheck(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: acctest.ProviderConfig() + testAccNetworkConfigHostname("tftest-nc-a"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("truenas_network_config.test", "id", "network_config"),
+					resource.TestCheckResourceAttr("truenas_network_config.test", "hostname", "tftest-nc-a"),
+				),
+			},
+			// Update path: change the hostname in place.
+			{
+				Config: acctest.ProviderConfig() + testAccNetworkConfigHostname("tftest-nc-b"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("truenas_network_config.test", "hostname", "tftest-nc-b"),
+				),
+			},
+			{
+				ResourceName:      "truenas_network_config.test",
+				ImportState:       true,
+				ImportStateId:     "network_config",
+				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
+func testAccNetworkConfigHostname(name string) string {
+	return fmt.Sprintf(`
+resource "truenas_network_config" "test" {
+  hostname = %q
+}
+`, name)
+}
+
+// currentHostname reads the box's current network.configuration hostname.
+func currentHostname(t *testing.T) string {
+	t.Helper()
+	raw, err := acctest.Client().Call(context.Background(), "network.configuration.config")
+	if err != nil {
+		t.Fatalf("reading network.configuration.config: %v", err)
+	}
+	var cfg struct {
+		Hostname string `json:"hostname"`
+	}
+	if err := json.Unmarshal(raw, &cfg); err != nil {
+		t.Fatalf("parsing network.configuration.config: %v", err)
+	}
+	return cfg.Hostname
 }
