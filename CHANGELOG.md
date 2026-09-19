@@ -6,6 +6,21 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Documentation
+- Swept every resource example that consumes a dataset to reference the dataset
+  resource rather than hardcoding its path or name, so a single `terraform
+  apply` that manages the dataset and its consumers orders them correctly
+  instead of racing (a hardcoded value gives Terraform no dependency edge and
+  fails with a "path/parent not found" error on the first apply, succeeding
+  only on the second). Path consumers (`truenas_filesystem_permissions`,
+  `truenas_filesystem_acl`, `truenas_webshare`, `truenas_rsync_task`,
+  `truenas_cloudsync_task`, `truenas_cloud_backup`) now use
+  `truenas_dataset.<name>.mountpoint`; dataset-name consumers
+  (`truenas_periodic_snapshot_task`, `truenas_snapshot`,
+  `truenas_replication_task`, `truenas_vmware`) use `truenas_dataset.<name>.name`.
+- Regenerated the `truenas_dataset` and `truenas_pool` reference docs, which
+  v1.0.7 shipped without regenerating after their examples changed.
+
 ## [1.0.7] - 2026-09-19
 
 ### Added

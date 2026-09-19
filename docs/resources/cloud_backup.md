@@ -16,9 +16,17 @@ Manages a cloud backup task (cloud_backup.*) on TrueNAS: a restic-based, snapsho
 # NOTE: cloud_backup.create validates the credential/bucket against the
 # actual remote endpoint at apply time -- a credential that can't reach the
 # named bucket fails the apply, it is not accepted silently.
+resource "truenas_dataset" "important" {
+  name = "tank/important"
+}
+
 resource "truenas_cloud_backup" "offsite" {
   description = "offsite-s3-backup"
-  path        = "/mnt/tank/important"
+  # Reference the dataset's mountpoint rather than hardcoding the path (e.g.
+  # "/mnt/tank/important"). The reference gives Terraform a dependency edge so
+  # the dataset is created before the backup task; a hardcoded path has no such
+  # edge and may fail with "path not found" on the first apply.
+  path        = truenas_dataset.important.mountpoint
   credentials = truenas_cloudsync_credentials.backup_s3.id
 
   attributes = jsonencode({
