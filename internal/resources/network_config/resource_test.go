@@ -442,7 +442,8 @@ func TestUpdatePayload_GatewayNameserverThreeWay(t *testing.T) {
 				t.Errorf("expected %q to be omitted when unknown", f.key)
 			}
 
-			// explicit "" -> nil
+			// explicit "" -> "" (TrueNAS rejects null for these fields; an
+			// empty value must be sent as "" to clear it).
 			m = base()
 			f.set(m, types.StringValue(""))
 			p, diags = m.updatePayload(context.Background())
@@ -453,8 +454,8 @@ func TestUpdatePayload_GatewayNameserverThreeWay(t *testing.T) {
 			if !ok {
 				t.Fatalf("expected %q to be present when explicitly \"\"", f.key)
 			}
-			if v != nil {
-				t.Errorf("%s = %v, want nil", f.key, v)
+			if v != "" {
+				t.Errorf("%s = %v, want \"\"", f.key, v)
 			}
 
 			// value -> value

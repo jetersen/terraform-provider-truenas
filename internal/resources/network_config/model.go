@@ -205,10 +205,10 @@ func responseToDataSourceModel(ctx context.Context, api *networkConfigAPI, m *Ne
 // writable field is guarded: each is only included when known
 // (Optional+Computed). hostname, domain, domains, hosts, and httpproxy use a
 // plain guard (omitted when null/unknown, sent as-is otherwise).
-// ipv4gateway, ipv6gateway, and nameserver1-3 use a three-way guard: omitted
-// entirely when null/unknown, sent as JSON nil when the model holds an
-// explicit "" (clearing the value on TrueNAS), and sent as their string
-// value otherwise. service_announcement is sent as a 3-key map only when the
+// ipv4gateway, ipv6gateway, and nameserver1-3 are omitted when null/unknown
+// and otherwise sent as their string value ("" clears the field on TrueNAS —
+// these must never be sent as JSON nil, which TrueNAS rejects).
+// service_announcement is sent as a 3-key map only when the
 // object is known (non-null, non-unknown); it is omitted entirely otherwise.
 func (m *NetworkConfigModel) updatePayload(ctx context.Context) (map[string]any, diag.Diagnostics) {
 	var diags diag.Diagnostics
@@ -239,40 +239,26 @@ func (m *NetworkConfigModel) updatePayload(ctx context.Context) (map[string]any,
 	if !m.HTTPProxy.IsNull() && !m.HTTPProxy.IsUnknown() {
 		p["httpproxy"] = m.HTTPProxy.ValueString()
 	}
+	// ipv4gateway/ipv6gateway/nameserver1-3: send the string value as-is — ""
+	// clears the field. TrueNAS's schema for these is anyOf("", valid IP) and
+	// REJECTS null, so an empty value must be sent as "" (not nil). Sending nil
+	// for an empty gateway/nameserver fails create/update with
+	// "[EINVAL] ... Input should be ''", which breaks any box that leaves
+	// ipv6gateway or a nameserver slot empty (the common case).
 	if !m.IPv4Gateway.IsNull() && !m.IPv4Gateway.IsUnknown() {
-		if v := m.IPv4Gateway.ValueString(); v != "" {
-			p["ipv4gateway"] = v
-		} else {
-			p["ipv4gateway"] = nil
-		}
+		p["ipv4gateway"] = m.IPv4Gateway.ValueString()
 	}
 	if !m.IPv6Gateway.IsNull() && !m.IPv6Gateway.IsUnknown() {
-		if v := m.IPv6Gateway.ValueString(); v != "" {
-			p["ipv6gateway"] = v
-		} else {
-			p["ipv6gateway"] = nil
-		}
+		p["ipv6gateway"] = m.IPv6Gateway.ValueString()
 	}
 	if !m.Nameserver1.IsNull() && !m.Nameserver1.IsUnknown() {
-		if v := m.Nameserver1.ValueString(); v != "" {
-			p["nameserver1"] = v
-		} else {
-			p["nameserver1"] = nil
-		}
+		p["nameserver1"] = m.Nameserver1.ValueString()
 	}
 	if !m.Nameserver2.IsNull() && !m.Nameserver2.IsUnknown() {
-		if v := m.Nameserver2.ValueString(); v != "" {
-			p["nameserver2"] = v
-		} else {
-			p["nameserver2"] = nil
-		}
+		p["nameserver2"] = m.Nameserver2.ValueString()
 	}
 	if !m.Nameserver3.IsNull() && !m.Nameserver3.IsUnknown() {
-		if v := m.Nameserver3.ValueString(); v != "" {
-			p["nameserver3"] = v
-		} else {
-			p["nameserver3"] = nil
-		}
+		p["nameserver3"] = m.Nameserver3.ValueString()
 	}
 	if !m.ServiceAnnouncement.IsNull() && !m.ServiceAnnouncement.IsUnknown() {
 		var sa ServiceAnnouncementModel

@@ -44,6 +44,11 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   otherwise prevents).
 
 ### Fixed
+- `truenas_network_config`: create/update no longer fails on a box that leaves
+  `ipv6gateway` or a `nameserver2`/`nameserver3` slot empty (the common case).
+  Empty gateway/nameserver fields were sent as JSON `null`, which TrueNAS
+  rejects (`[EINVAL] ... Input should be ''`); they are now sent as `""`.
+  Verified live (hostname set/restore) on a disposable box.
 - `truenas_cloudsync_credentials`: a custom S3 `endpoint` (MinIO, SeaweedFS,
   Wasabi, Backblaze, and any other S3-compatible provider) no longer causes a
   perpetual diff. TrueNAS appends a trailing slash to the endpoint on
