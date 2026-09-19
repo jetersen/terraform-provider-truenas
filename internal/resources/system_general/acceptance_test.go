@@ -4,6 +4,9 @@
 package system_general_test
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
 	"os"
 	"testing"
 
@@ -65,6 +68,74 @@ data "truenas_system_general" "test" {}
 //     on a live system can cut off management access.
 //  3. Use ImportState with ImportStateId "system_general" to verify import
 //     normalizes any ID to the fixed singleton ID.
+//
+// It is gated behind TRUENAS_TEST_SYSTEM_GENERAL (not just TF_ACC). It touches
+// ONLY `timezone`: updatePayload sends only the fields set in config, so the
+// UI ports (ui_port/ui_httpsport) and addresses are never rewritten and
+// management access can't be cut. A t.Cleanup restores the box's original
+// timezone regardless of outcome. Run only against a disposable box.
 func TestAccSystemGeneral_basic(t *testing.T) {
-	t.Skip("truenas_system_general controls the LIVE management UI; skipped to avoid cutting off management access to the target box. See comment on TestAccSystemGeneral_basic for how to safely enable this against a disposable instance.")
+	if os.Getenv("TRUENAS_TEST_SYSTEM_GENERAL") == "" {
+		t.Skip("set TRUENAS_TEST_SYSTEM_GENERAL=1 (on a disposable box) to run the system_general set/restore test")
+	}
+	acctest.PreCheck(t)
+
+	orig := currentTimezone(t)
+	t.Cleanup(func() {
+		if _, err := acctest.Client().Call(context.Background(), "system.general.update",
+			map[string]any{"timezone": orig}); err != nil {
+			t.Logf("WARNING: failed to restore timezone=%q: %v", orig, err)
+		}
+	})
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { acctest.PreCheck(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: acctest.ProviderConfig() + testAccSystemGeneralTimezone("UTC"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("truenas_system_general.test", "id", "system_general"),
+					resource.TestCheckResourceAttr("truenas_system_general.test", "timezone", "UTC"),
+				),
+			},
+			// Update path: change to another valid timezone in place.
+			{
+				Config: acctest.ProviderConfig() + testAccSystemGeneralTimezone("America/New_York"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("truenas_system_general.test", "timezone", "America/New_York"),
+				),
+			},
+			{
+				ResourceName:      "truenas_system_general.test",
+				ImportState:       true,
+				ImportStateId:     "system_general",
+				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
+func testAccSystemGeneralTimezone(tz string) string {
+	return fmt.Sprintf(`
+resource "truenas_system_general" "test" {
+  timezone = %q
+}
+`, tz)
+}
+
+// currentTimezone reads the box's current system.general timezone.
+func currentTimezone(t *testing.T) string {
+	t.Helper()
+	raw, err := acctest.Client().Call(context.Background(), "system.general.config")
+	if err != nil {
+		t.Fatalf("reading system.general.config: %v", err)
+	}
+	var cfg struct {
+		Timezone string `json:"timezone"`
+	}
+	if err := json.Unmarshal(raw, &cfg); err != nil {
+		t.Fatalf("parsing system.general.config: %v", err)
+	}
+	return cfg.Timezone
 }
