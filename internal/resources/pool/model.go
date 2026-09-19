@@ -39,13 +39,20 @@ var topologyAttrTypes = map[string]attr.Type{
 	"spare": types.ListType{ElemType: types.StringType},
 }
 
-// TopologyModel represents the pool topology in Terraform state.
+// TopologyModel represents the pool topology in Terraform state. Every field
+// is a types.List (not a bare []VdevModel) so it can hold null/unknown: the
+// data/log/cache/spare attributes are Optional+Computed, so a config that
+// omits one (e.g. no log vdev) hands the framework an *unknown* value for it,
+// which a plain Go slice cannot represent (issue #7).
 type TopologyModel struct {
-	Data  []VdevModel `tfsdk:"data"`
-	Log   []VdevModel `tfsdk:"log"`
-	Cache types.List  `tfsdk:"cache"` // List[String] - flat disk names
-	Spare types.List  `tfsdk:"spare"` // List[String] - flat disk names
+	Data  types.List `tfsdk:"data"`  // List[Object{type,disks}]
+	Log   types.List `tfsdk:"log"`   // List[Object{type,disks}]
+	Cache types.List `tfsdk:"cache"` // List[String] - flat disk names
+	Spare types.List `tfsdk:"spare"` // List[String] - flat disk names
 }
+
+// vdevObjectType is the element type of the data/log vdev lists.
+var vdevObjectType = types.ObjectType{AttrTypes: vdevAttrTypes}
 
 // PoolModel is the Terraform state model for a ZFS pool resource. Topology
 // is Required in the resource schema, so it is never null in practice and
@@ -160,7 +167,9 @@ func buildTopology(ctx context.Context, api *poolAPI) (TopologyModel, diag.Diagn
 		diags.Append(d...)
 		data[i] = VdevModel{Type: types.StringValue(v.Type), Disks: diskList}
 	}
-	topo.Data = data
+	dataList, d := types.ListValueFrom(ctx, vdevObjectType, data)
+	diags.Append(d...)
+	topo.Data = dataList
 
 	// Convert log vdevs
 	logVdevs := make([]VdevModel, len(api.Topology.Log))
@@ -170,7 +179,9 @@ func buildTopology(ctx context.Context, api *poolAPI) (TopologyModel, diag.Diagn
 		diags.Append(d...)
 		logVdevs[i] = VdevModel{Type: types.StringValue(v.Type), Disks: diskList}
 	}
-	topo.Log = logVdevs
+	logList, dl := types.ListValueFrom(ctx, vdevObjectType, logVdevs)
+	diags.Append(dl...)
+	topo.Log = logList
 
 	// Cache: each cache vdev is a single-disk DISK vdev; flatten to disk names
 	cacheDisks := make([]string, len(api.Topology.Cache))
@@ -268,29 +279,41 @@ func vdevDisks(v poolVdev) []string {
 func (m *PoolModel) apiPayload(ctx context.Context) (map[string]any, diag.Diagnostics) {
 	var diags diag.Diagnostics
 
-	dataVdevs := make([]map[string]any, len(m.Topology.Data))
-	for i, v := range m.Topology.Data {
-		var disks []string
-		diags.Append(v.Disks.ElementsAs(ctx, &disks, false)...)
-		dataVdevs[i] = map[string]any{"type": v.Type.ValueString(), "disks": disks}
+	// vdevPayload reads a data/log vdev list (which may be null or unknown when
+	// the config omits it) into the wire shape [{type, disks}].
+	vdevPayload := func(l types.List) []map[string]any {
+		out := []map[string]any{}
+		if l.IsNull() || l.IsUnknown() {
+			return out
+		}
+		var items []VdevModel
+		diags.Append(l.ElementsAs(ctx, &items, false)...)
+		for _, v := range items {
+			var disks []string
+			diags.Append(v.Disks.ElementsAs(ctx, &disks, false)...)
+			out = append(out, map[string]any{"type": v.Type.ValueString(), "disks": disks})
+		}
+		return out
 	}
+	dataVdevs := vdevPayload(m.Topology.Data)
+	logVdevs := vdevPayload(m.Topology.Log)
 
-	logVdevs := make([]map[string]any, len(m.Topology.Log))
-	for i, v := range m.Topology.Log {
-		var disks []string
-		diags.Append(v.Disks.ElementsAs(ctx, &disks, false)...)
-		logVdevs[i] = map[string]any{"type": v.Type.ValueString(), "disks": disks}
+	// diskList reads a flat disk-name list, tolerating null/unknown.
+	diskList := func(l types.List) []string {
+		out := []string{}
+		if l.IsNull() || l.IsUnknown() {
+			return out
+		}
+		diags.Append(l.ElementsAs(ctx, &out, false)...)
+		return out
 	}
-
-	var cacheDisks []string
-	diags.Append(m.Topology.Cache.ElementsAs(ctx, &cacheDisks, false)...)
+	cacheDisks := diskList(m.Topology.Cache)
 	cacheVdevs := make([]map[string]any, len(cacheDisks))
 	for i, d := range cacheDisks {
 		cacheVdevs[i] = map[string]any{"type": "DISK", "disks": []string{d}}
 	}
 
-	var spareDisks []string
-	diags.Append(m.Topology.Spare.ElementsAs(ctx, &spareDisks, false)...)
+	spareDisks := diskList(m.Topology.Spare)
 
 	p := map[string]any{
 		"name": m.Name.ValueString(),

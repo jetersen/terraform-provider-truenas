@@ -48,14 +48,23 @@ func TestPoolAPIPayload(t *testing.T) {
 		t.Fatalf("failed to build spare list: %v", diags)
 	}
 
+	dataVdevList, diags := types.ListValueFrom(ctx, vdevObjectType, []VdevModel{{
+		Type:  types.StringValue("MIRROR"),
+		Disks: diskList,
+	}})
+	if diags.HasError() {
+		t.Fatalf("failed to build data vdev list: %v", diags)
+	}
+	emptyLog, diags := types.ListValueFrom(ctx, vdevObjectType, []VdevModel{})
+	if diags.HasError() {
+		t.Fatalf("failed to build log list: %v", diags)
+	}
+
 	m := &PoolModel{
 		Name: types.StringValue("testpool"),
 		Topology: TopologyModel{
-			Data: []VdevModel{{
-				Type:  types.StringValue("MIRROR"),
-				Disks: diskList,
-			}},
-			Log:   []VdevModel{},
+			Data:  dataVdevList,
+			Log:   emptyLog,
 			Cache: emptyCache,
 			Spare: emptySpare,
 		},
@@ -168,18 +177,110 @@ func TestPoolResponseToModel(t *testing.T) {
 	if !m.AutoTrim.ValueBool() {
 		t.Error("expected AutoTrim=true")
 	}
-	if len(m.Topology.Data) != 1 {
-		t.Fatalf("expected 1 data vdev, got %d", len(m.Topology.Data))
+	var dataVdevs []VdevModel
+	if diags := m.Topology.Data.ElementsAs(ctx, &dataVdevs, false); diags.HasError() {
+		t.Fatalf("data ElementsAs failed: %v", diags)
 	}
-	if m.Topology.Data[0].Type.ValueString() != "MIRROR" {
-		t.Errorf("expected data[0].type=MIRROR, got %q", m.Topology.Data[0].Type.ValueString())
+	if len(dataVdevs) != 1 {
+		t.Fatalf("expected 1 data vdev, got %d", len(dataVdevs))
+	}
+	if dataVdevs[0].Type.ValueString() != "MIRROR" {
+		t.Errorf("expected data[0].type=MIRROR, got %q", dataVdevs[0].Type.ValueString())
 	}
 
 	var diskNames []string
-	if diags := m.Topology.Data[0].Disks.ElementsAs(ctx, &diskNames, false); diags.HasError() {
+	if diags := dataVdevs[0].Disks.ElementsAs(ctx, &diskNames, false); diags.HasError() {
 		t.Fatalf("ElementsAs failed: %v", diags)
 	}
 	if len(diskNames) != 2 || diskNames[0] != "sda" || diskNames[1] != "sdb" {
 		t.Errorf("unexpected disk names: %v", diskNames)
+	}
+}
+
+// TestPoolApiPayload_OmittedLogUnknown is the regression test for issue #7: a
+// config that sets only topology.data leaves log/cache/spare as unknown values
+// (they are Optional+Computed). Before the fix, TopologyModel.Log was a plain
+// []VdevModel that could not hold an unknown, so req.Plan.Get crashed with
+// "Received unknown value ... Target Type: []pool.VdevModel". With Data/Log as
+// types.List, the model holds unknown and apiPayload emits empty lists for the
+// omitted vdev types.
+func TestPoolApiPayload_OmittedLogUnknown(t *testing.T) {
+	ctx := context.Background()
+
+	disks, diags := types.ListValueFrom(ctx, types.StringType, []string{"sdc", "sdd"})
+	if diags.HasError() {
+		t.Fatalf("disk list: %v", diags)
+	}
+	dataList, diags := types.ListValueFrom(ctx, vdevObjectType, []VdevModel{{
+		Type:  types.StringValue("MIRROR"),
+		Disks: disks,
+	}})
+	if diags.HasError() {
+		t.Fatalf("data list: %v", diags)
+	}
+
+	m := &PoolModel{
+		Name: types.StringValue("tank"),
+		Topology: TopologyModel{
+			Data:  dataList,
+			Log:   types.ListUnknown(vdevObjectType),   // omitted -> unknown
+			Cache: types.ListUnknown(types.StringType), // omitted -> unknown
+			Spare: types.ListUnknown(types.StringType), // omitted -> unknown
+		},
+		AutoTrim: types.BoolValue(true),
+	}
+
+	payload, diags := m.apiPayload(ctx)
+	if diags.HasError() {
+		t.Fatalf("apiPayload returned errors for unknown log/cache/spare: %v", diags)
+	}
+	topo := payload["topology"].(map[string]any)
+
+	if data := topo["data"].([]map[string]any); len(data) != 1 {
+		t.Errorf("data vdevs = %d, want 1", len(data))
+	}
+	for _, k := range []string{"log", "cache", "spare"} {
+		v := topo[k]
+		switch vv := v.(type) {
+		case []map[string]any:
+			if len(vv) != 0 {
+				t.Errorf("topology.%s = %v, want empty", k, vv)
+			}
+		case []string:
+			if len(vv) != 0 {
+				t.Errorf("topology.%s = %v, want empty", k, vv)
+			}
+		default:
+			t.Errorf("topology.%s has unexpected type %T", k, v)
+		}
+	}
+}
+
+// TestPoolApiPayload_NullTopologyLists verifies null (as opposed to unknown)
+// omitted vdev lists are also tolerated and emit empty lists.
+func TestPoolApiPayload_NullTopologyLists(t *testing.T) {
+	ctx := context.Background()
+
+	disks, _ := types.ListValueFrom(ctx, types.StringType, []string{"sdc", "sdd"})
+	dataList, _ := types.ListValueFrom(ctx, vdevObjectType, []VdevModel{{Type: types.StringValue("MIRROR"), Disks: disks}})
+
+	m := &PoolModel{
+		Name: types.StringValue("tank"),
+		Topology: TopologyModel{
+			Data:  dataList,
+			Log:   types.ListNull(vdevObjectType),
+			Cache: types.ListNull(types.StringType),
+			Spare: types.ListNull(types.StringType),
+		},
+		AutoTrim: types.BoolValue(false),
+	}
+
+	payload, diags := m.apiPayload(ctx)
+	if diags.HasError() {
+		t.Fatalf("apiPayload returned errors for null lists: %v", diags)
+	}
+	topo := payload["topology"].(map[string]any)
+	if log := topo["log"].([]map[string]any); len(log) != 0 {
+		t.Errorf("topology.log = %v, want empty", log)
 	}
 }

@@ -75,15 +75,19 @@ func TestPoolResponseToDataSourceModel(t *testing.T) {
 	if diags := m.Topology.As(ctx, &topo, basetypes.ObjectAsOptions{}); diags.HasError() {
 		t.Fatalf("failed to decode Topology object: %v", diags)
 	}
-	if len(topo.Data) != 1 {
-		t.Fatalf("expected 1 data vdev, got %d", len(topo.Data))
+	var dataVdevs []VdevModel
+	if diags := topo.Data.ElementsAs(ctx, &dataVdevs, false); diags.HasError() {
+		t.Fatalf("data ElementsAs failed: %v", diags)
 	}
-	if topo.Data[0].Type.ValueString() != "MIRROR" {
-		t.Errorf("expected data[0].type=MIRROR, got %q", topo.Data[0].Type.ValueString())
+	if len(dataVdevs) != 1 {
+		t.Fatalf("expected 1 data vdev, got %d", len(dataVdevs))
+	}
+	if dataVdevs[0].Type.ValueString() != "MIRROR" {
+		t.Errorf("expected data[0].type=MIRROR, got %q", dataVdevs[0].Type.ValueString())
 	}
 
 	var diskNames []string
-	if diags := topo.Data[0].Disks.ElementsAs(ctx, &diskNames, false); diags.HasError() {
+	if diags := dataVdevs[0].Disks.ElementsAs(ctx, &diskNames, false); diags.HasError() {
 		t.Fatalf("ElementsAs failed: %v", diags)
 	}
 	if len(diskNames) != 2 || diskNames[0] != "sda" || diskNames[1] != "sdb" {
