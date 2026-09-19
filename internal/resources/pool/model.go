@@ -308,22 +308,28 @@ func (m *PoolModel) apiPayload(ctx context.Context) (map[string]any, diag.Diagno
 		return out
 	}
 	cacheDisks := diskList(m.Topology.Cache)
+	// Each L2ARC cache vdev is type "STRIPE" (a const in the pool.create
+	// schema); "DISK" is rejected.
 	cacheVdevs := make([]map[string]any, len(cacheDisks))
 	for i, d := range cacheDisks {
-		cacheVdevs[i] = map[string]any{"type": "DISK", "disks": []string{d}}
+		cacheVdevs[i] = map[string]any{"type": "STRIPE", "disks": []string{d}}
 	}
 
 	spareDisks := diskList(m.Topology.Spare)
 
+	// pool.create's topology key for spares is "spares" (plural) and takes a
+	// flat array of disk names; note pool.query returns them under "spare"
+	// (singular) — see responseToModel. autotrim is NOT a pool.create input
+	// (it is rejected as "Extra inputs are not permitted"); the resource sets
+	// it via a follow-up pool.update in Create instead.
 	p := map[string]any{
 		"name": m.Name.ValueString(),
 		"topology": map[string]any{
-			"data":  dataVdevs,
-			"log":   logVdevs,
-			"cache": cacheVdevs,
-			"spare": spareDisks,
+			"data":   dataVdevs,
+			"log":    logVdevs,
+			"cache":  cacheVdevs,
+			"spares": spareDisks,
 		},
-		"autotrim": autotrimStr(m.AutoTrim.ValueBool()),
 	}
 	return p, diags
 }

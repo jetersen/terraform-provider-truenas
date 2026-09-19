@@ -81,13 +81,10 @@ func TestPoolAPIPayload(t *testing.T) {
 		t.Errorf("expected name=%q, got %v", "testpool", payload["name"])
 	}
 
-	// Verify autotrim
-	autotrim, ok := payload["autotrim"].(string)
-	if !ok {
-		t.Fatal("autotrim is not string")
-	}
-	if autotrim != "ON" {
-		t.Errorf("expected autotrim=\"ON\", got %q", autotrim)
+	// autotrim is NOT a pool.create input (rejected as "Extra inputs are not
+	// permitted"); the resource applies it via a follow-up pool.update.
+	if _, ok := payload["autotrim"]; ok {
+		t.Errorf("pool.create payload must not contain autotrim, got %v", payload["autotrim"])
 	}
 
 	// Verify topology
@@ -114,13 +111,16 @@ func TestPoolAPIPayload(t *testing.T) {
 		t.Errorf("unexpected disks: %v", disks)
 	}
 
-	// Spare should be an empty slice (not nil)
-	spare, ok := topo["spare"].([]string)
+	// pool.create's topology key is "spares" (plural), not "spare".
+	if _, ok := topo["spare"]; ok {
+		t.Error("topology must use \"spares\" (plural), not \"spare\"")
+	}
+	spare, ok := topo["spares"].([]string)
 	if !ok {
-		t.Fatalf("topology.spare is not []string, got %T", topo["spare"])
+		t.Fatalf("topology.spares is not []string, got %T", topo["spares"])
 	}
 	if len(spare) != 0 {
-		t.Errorf("expected empty spare, got %v", spare)
+		t.Errorf("expected empty spares, got %v", spare)
 	}
 
 	// Cache should be an empty vdev slice
@@ -239,7 +239,7 @@ func TestPoolApiPayload_OmittedLogUnknown(t *testing.T) {
 	if data := topo["data"].([]map[string]any); len(data) != 1 {
 		t.Errorf("data vdevs = %d, want 1", len(data))
 	}
-	for _, k := range []string{"log", "cache", "spare"} {
+	for _, k := range []string{"log", "cache", "spares"} {
 		v := topo[k]
 		switch vv := v.(type) {
 		case []map[string]any:
@@ -282,5 +282,54 @@ func TestPoolApiPayload_NullTopologyLists(t *testing.T) {
 	topo := payload["topology"].(map[string]any)
 	if log := topo["log"].([]map[string]any); len(log) != 0 {
 		t.Errorf("topology.log = %v, want empty", log)
+	}
+}
+
+// TestPoolApiPayload_CacheAndSpares is the regression test for the pool.create
+// payload shape (issue #7 follow-up): cache vdevs must be type "STRIPE" (not
+// "DISK"), spares go under the "spares" key as a flat disk-name array, and
+// autotrim is never sent to pool.create.
+func TestPoolApiPayload_CacheAndSpares(t *testing.T) {
+	ctx := context.Background()
+
+	data, _ := types.ListValueFrom(ctx, types.StringType, []string{"sdc", "sdd"})
+	dataList, _ := types.ListValueFrom(ctx, vdevObjectType, []VdevModel{{Type: types.StringValue("MIRROR"), Disks: data}})
+	cache, _ := types.ListValueFrom(ctx, types.StringType, []string{"nvme0"})
+	spares, _ := types.ListValueFrom(ctx, types.StringType, []string{"sde", "sdf"})
+
+	m := &PoolModel{
+		Name: types.StringValue("tank"),
+		Topology: TopologyModel{
+			Data:  dataList,
+			Log:   types.ListNull(vdevObjectType),
+			Cache: cache,
+			Spare: spares,
+		},
+		AutoTrim: types.BoolValue(true),
+	}
+
+	payload, diags := m.apiPayload(ctx)
+	if diags.HasError() {
+		t.Fatalf("apiPayload: %v", diags)
+	}
+	if _, ok := payload["autotrim"]; ok {
+		t.Error("pool.create payload must not contain autotrim")
+	}
+	topo := payload["topology"].(map[string]any)
+
+	cacheVdevs, ok := topo["cache"].([]map[string]any)
+	if !ok || len(cacheVdevs) != 1 {
+		t.Fatalf("topology.cache = %v, want 1 vdev", topo["cache"])
+	}
+	if cacheVdevs[0]["type"] != "STRIPE" {
+		t.Errorf("cache vdev type = %v, want STRIPE", cacheVdevs[0]["type"])
+	}
+
+	sp, ok := topo["spares"].([]string)
+	if !ok || len(sp) != 2 || sp[0] != "sde" {
+		t.Errorf("topology.spares = %v, want [sde sdf]", topo["spares"])
+	}
+	if _, ok := topo["spare"]; ok {
+		t.Error("must not use singular \"spare\" key")
 	}
 }

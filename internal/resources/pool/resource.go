@@ -69,6 +69,26 @@ func (r *PoolResource) Create(ctx context.Context, req resource.CreateRequest, r
 		return
 	}
 
+	// autotrim is not accepted by pool.create (it is a pool.update field), so
+	// apply it in a follow-up update when the user set it.
+	if !plan.AutoTrim.IsNull() && !plan.AutoTrim.IsUnknown() {
+		if _, err := r.client.CallJob(ctx, "pool.update", apiResp.ID,
+			map[string]any{"autotrim": autotrimStr(plan.AutoTrim.ValueBool())}); err != nil {
+			resp.Diagnostics.AddError("Set autotrim after pool create failed", err.Error())
+			return
+		}
+		// Re-read so state reflects the applied autotrim.
+		raw, err = r.client.CallRead(ctx, "pool.get_instance", apiResp.ID)
+		if err != nil {
+			resp.Diagnostics.AddError("Read-back after pool create failed", err.Error())
+			return
+		}
+		if err := json.Unmarshal(raw, &apiResp); err != nil {
+			resp.Diagnostics.AddError("Parse get_instance response", err.Error())
+			return
+		}
+	}
+
 	resp.Diagnostics.Append(responseToModel(ctx, &apiResp, &plan)...)
 	if resp.Diagnostics.HasError() {
 		return
