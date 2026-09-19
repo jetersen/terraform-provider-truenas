@@ -6,6 +6,8 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.7] - 2026-09-19
+
 ### Added
 - Attribute-coverage fill from a live-API field audit:
   - `truenas_smb_share`: nested `audit` block (`enable`, `watch_list`,
