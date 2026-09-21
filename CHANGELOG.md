@@ -6,6 +6,8 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.11] - 2026-09-21
+
 ### Changed
 - `truenas_pool`: the provider now **refuses to ever plan a pool
   destroy/recreate** from a configuration change. `name` and `topology` are no
