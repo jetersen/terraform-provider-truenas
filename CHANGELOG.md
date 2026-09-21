@@ -6,6 +6,8 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.9] - 2026-09-21
+
 ### Fixed
 - `truenas_pool`: a pool no longer plans a destroy/recreate when a disk's
   kernel device name (`sdX`) changes across a reboot, and no longer perpetually
