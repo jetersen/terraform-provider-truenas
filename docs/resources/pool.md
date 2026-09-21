@@ -4,11 +4,17 @@ page_title: "truenas_pool Resource - truenas"
 subcategory: "Storage"
 description: |-
   Manages a ZFS pool on TrueNAS.
+  Data safety — this resource never plans a pool destroy/recreate. name and topology are treated as immutable after creation: a change to either is refused at plan time rather than replacing (and thereby erasing) the pool. To make a real topology change — grow the pool, replace a disk, or add/remove a cache/log/spare — do it in the TrueNAS UI or with zpool, then run terraform apply -refresh-only to reconcile state. A deliberate teardown is terraform destroy. Adding lifecycle { prevent_destroy = true } is recommended as defense-in-depth.
+  Disk failures are not configuration changes. If a member faults, a hot spare activates, or a disk is physically removed, the pool still reconciles to your configuration and plans no change — provided disks are pinned by their stable serial (recommended; see disks).
 ---
 
 # truenas_pool (Resource)
 
 Manages a ZFS pool on TrueNAS.
+
+**Data safety — this resource never plans a pool destroy/recreate.** `name` and `topology` are treated as immutable after creation: a change to either is refused at plan time rather than replacing (and thereby erasing) the pool. To make a real topology change — grow the pool, replace a disk, or add/remove a cache/log/spare — do it in the TrueNAS UI or with `zpool`, then run `terraform apply -refresh-only` to reconcile state. A deliberate teardown is `terraform destroy`. Adding `lifecycle { prevent_destroy = true }` is recommended as defense-in-depth.
+
+**Disk failures are not configuration changes.** If a member faults, a hot spare activates, or a disk is physically removed, the pool still reconciles to your configuration and plans no change — provided disks are pinned by their stable serial (recommended; see `disks`).
 
 ## Example Usage
 
@@ -86,16 +92,16 @@ Required:
 
 Optional:
 
-- `cache` (List of String) Disks in this vdev. Each may be given as the disk serial (recommended, e.g. "SMC0515D90925BQ85185"), the TrueNAS disk identifier, a /dev/disk/by-id path, or the kernel device name (sdX). The provider stores the stable serial in state and resolves any form to the same physical disk, so a kernel-name renumber across reboots does not plan a pool replacement.
+- `cache` (List of String) Disks in this vdev. Each may be given as the disk serial (recommended, e.g. "SMC0515D90925BQ85185"), the TrueNAS disk identifier, a /dev/disk/by-id path, or the kernel device name (sdX). The provider resolves any of these to the same physical disk at plan time, so pinning disks by serial keeps a configuration stable across device renumbering and through a failed, removed, or spare-covered disk. State reflects the current kernel device name, not the configured form.
 - `log` (Attributes List) (see [below for nested schema](#nestedatt--topology--log))
-- `spare` (List of String) Disks in this vdev. Each may be given as the disk serial (recommended, e.g. "SMC0515D90925BQ85185"), the TrueNAS disk identifier, a /dev/disk/by-id path, or the kernel device name (sdX). The provider stores the stable serial in state and resolves any form to the same physical disk, so a kernel-name renumber across reboots does not plan a pool replacement.
+- `spare` (List of String) Disks in this vdev. Each may be given as the disk serial (recommended, e.g. "SMC0515D90925BQ85185"), the TrueNAS disk identifier, a /dev/disk/by-id path, or the kernel device name (sdX). The provider resolves any of these to the same physical disk at plan time, so pinning disks by serial keeps a configuration stable across device renumbering and through a failed, removed, or spare-covered disk. State reflects the current kernel device name, not the configured form.
 
 <a id="nestedatt--topology--data"></a>
 ### Nested Schema for `topology.data`
 
 Required:
 
-- `disks` (List of String) Disks in this vdev. Each may be given as the disk serial (recommended, e.g. "SMC0515D90925BQ85185"), the TrueNAS disk identifier, a /dev/disk/by-id path, or the kernel device name (sdX). The provider stores the stable serial in state and resolves any form to the same physical disk, so a kernel-name renumber across reboots does not plan a pool replacement.
+- `disks` (List of String) Disks in this vdev. Each may be given as the disk serial (recommended, e.g. "SMC0515D90925BQ85185"), the TrueNAS disk identifier, a /dev/disk/by-id path, or the kernel device name (sdX). The provider resolves any of these to the same physical disk at plan time, so pinning disks by serial keeps a configuration stable across device renumbering and through a failed, removed, or spare-covered disk. State reflects the current kernel device name, not the configured form.
 - `type` (String) Vdev layout: "STRIPE" (single disk or JBOD), "MIRROR", or "RAIDZ1"/"RAIDZ2"/"RAIDZ3". "DISK" is accepted as an alias for "STRIPE" (it is the spelling TrueNAS's own query and UI use for a single-disk vdev).
 
 
@@ -104,7 +110,7 @@ Required:
 
 Required:
 
-- `disks` (List of String) Disks in this vdev. Each may be given as the disk serial (recommended, e.g. "SMC0515D90925BQ85185"), the TrueNAS disk identifier, a /dev/disk/by-id path, or the kernel device name (sdX). The provider stores the stable serial in state and resolves any form to the same physical disk, so a kernel-name renumber across reboots does not plan a pool replacement.
+- `disks` (List of String) Disks in this vdev. Each may be given as the disk serial (recommended, e.g. "SMC0515D90925BQ85185"), the TrueNAS disk identifier, a /dev/disk/by-id path, or the kernel device name (sdX). The provider resolves any of these to the same physical disk at plan time, so pinning disks by serial keeps a configuration stable across device renumbering and through a failed, removed, or spare-covered disk. State reflects the current kernel device name, not the configured form.
 - `type` (String) Vdev layout: "STRIPE" (single disk or JBOD), "MIRROR", or "RAIDZ1"/"RAIDZ2"/"RAIDZ3". "DISK" is accepted as an alias for "STRIPE" (it is the spelling TrueNAS's own query and UI use for a single-disk vdev).
 
 ## Import

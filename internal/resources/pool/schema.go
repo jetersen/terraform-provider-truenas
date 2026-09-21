@@ -16,7 +16,7 @@ import (
 
 func resourceSchema() schema.Schema {
 	return schema.Schema{
-		Description: "Manages a ZFS pool on TrueNAS.",
+		Description: poolResourceDesc,
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
 				Computed: true,
@@ -102,19 +102,36 @@ func resourceSchema() schema.Schema {
 	}
 }
 
-// vdevTypeDesc and disksDesc document the topology vdev fields, including the
-// stable-identifier behavior added for issue #9.
+// poolResourceDesc, vdevTypeDesc and disksDesc document the pool resource and
+// its topology fields, including the data-safety contract and the
+// stable-identifier behavior.
 const (
+	poolResourceDesc = "Manages a ZFS pool on TrueNAS.\n\n" +
+		"**Data safety — this resource never plans a pool destroy/recreate.** " +
+		"`name` and `topology` are treated as immutable after creation: a change " +
+		"to either is refused at plan time rather than replacing (and thereby " +
+		"erasing) the pool. To make a real topology change — grow the pool, " +
+		"replace a disk, or add/remove a cache/log/spare — do it in the TrueNAS " +
+		"UI or with `zpool`, then run `terraform apply -refresh-only` to " +
+		"reconcile state. A deliberate teardown is `terraform destroy`. Adding " +
+		"`lifecycle { prevent_destroy = true }` is recommended as " +
+		"defense-in-depth.\n\n" +
+		"**Disk failures are not configuration changes.** If a member faults, a " +
+		"hot spare activates, or a disk is physically removed, the pool still " +
+		"reconciles to your configuration and plans no change — provided disks " +
+		"are pinned by their stable serial (recommended; see `disks`)."
 	vdevTypeDesc = `Vdev layout: "STRIPE" (single disk or JBOD), "MIRROR", or ` +
 		`"RAIDZ1"/"RAIDZ2"/"RAIDZ3". "DISK" is accepted as an alias for ` +
 		`"STRIPE" (it is the spelling TrueNAS's own query and UI use for a ` +
 		`single-disk vdev).`
 	disksDesc = `Disks in this vdev. Each may be given as the disk serial ` +
 		`(recommended, e.g. "SMC0515D90925BQ85185"), the TrueNAS disk ` +
-		`identifier, a /dev/disk/by-id path, or the kernel device name ` +
-		`(sdX). The provider stores the stable serial in state and resolves ` +
-		`any form to the same physical disk, so a kernel-name renumber ` +
-		`across reboots does not plan a pool replacement.`
+		`identifier, a /dev/disk/by-id path, or the kernel device name (sdX). ` +
+		`The provider resolves any of these to the same physical disk at plan ` +
+		`time, so pinning disks by serial keeps a configuration stable across ` +
+		`device renumbering and through a failed, removed, or spare-covered ` +
+		`disk. State reflects the current kernel device name, not the ` +
+		`configured form.`
 )
 
 func datasourceSchema() dschema.Schema {
