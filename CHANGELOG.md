@@ -6,6 +6,8 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.0.10] - 2026-09-21
+
 ### Fixed
 - `truenas_pool`: a pool that has gone **degraded with a hot spare active** no
   longer plans a destroy/recreate. When a spare steps in for a faulted member,
