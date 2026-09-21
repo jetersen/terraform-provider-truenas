@@ -6,6 +6,25 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Fixed
+- `truenas_pool`: a pool no longer plans a destroy/recreate when a disk's
+  kernel device name (`sdX`) changes across a reboot, and no longer perpetually
+  diffs on the vdev `type` spelling (issue #9). Two root causes:
+  - Topology disks could only be named by the volatile `sdX` device name, so a
+    reboot renumber made `RequiresReplace` fire. `disks` now accepts a disk
+    named by its stable **serial** (recommended), its TrueNAS identifier, a
+    `/dev/disk/by-id` path, or an `sdX` name; at plan time the provider resolves
+    the configured name and the one in state (via `disk.query`) to the same
+    physical disk and suppresses the diff, so a config that pins disks by serial
+    is renumber-proof. State reflects the live device name; the stability is in
+    the plan, not a rewritten state. Existing `sdX` configs keep working.
+  - A single-disk vdev read back as `type = "DISK"` but written in config as
+    `"STRIPE"` (or vice-versa) perpetually diffed; `"DISK"` is now accepted as
+    an alias for `"STRIPE"`. Computed pool attributes also carry
+    `UseStateForUnknown` so a no-op plan no longer shows a spurious in-place
+    update. Verified live end-to-end (create by serial, re-plan by sdX +
+    `DISK` as a no-op, import) on real disks.
+
 ## [1.0.8] - 2026-09-19
 
 ### Documentation

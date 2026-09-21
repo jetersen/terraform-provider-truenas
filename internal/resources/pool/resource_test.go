@@ -71,7 +71,7 @@ func TestPoolAPIPayload(t *testing.T) {
 		AutoTrim: types.BoolValue(true),
 	}
 
-	payload, diags := m.apiPayload(ctx)
+	payload, diags := m.apiPayload(ctx, testResolver())
 	if diags.HasError() {
 		t.Fatalf("apiPayload returned errors: %v", diags)
 	}
@@ -163,7 +163,7 @@ func TestPoolResponseToModel(t *testing.T) {
 	api.Topology.Spare = []poolVdev{}
 
 	var m PoolModel
-	diags := responseToModel(ctx, api, &m)
+	diags := responseToModel(ctx, api, &m, testResolver())
 	if diags.HasError() {
 		t.Fatalf("responseToModel returned errors: %v", diags)
 	}
@@ -230,7 +230,7 @@ func TestPoolApiPayload_OmittedLogUnknown(t *testing.T) {
 		AutoTrim: types.BoolValue(true),
 	}
 
-	payload, diags := m.apiPayload(ctx)
+	payload, diags := m.apiPayload(ctx, testResolver())
 	if diags.HasError() {
 		t.Fatalf("apiPayload returned errors for unknown log/cache/spare: %v", diags)
 	}
@@ -275,7 +275,7 @@ func TestPoolApiPayload_NullTopologyLists(t *testing.T) {
 		AutoTrim: types.BoolValue(false),
 	}
 
-	payload, diags := m.apiPayload(ctx)
+	payload, diags := m.apiPayload(ctx, testResolver())
 	if diags.HasError() {
 		t.Fatalf("apiPayload returned errors for null lists: %v", diags)
 	}
@@ -308,7 +308,7 @@ func TestPoolApiPayload_CacheAndSpares(t *testing.T) {
 		AutoTrim: types.BoolValue(true),
 	}
 
-	payload, diags := m.apiPayload(ctx)
+	payload, diags := m.apiPayload(ctx, testResolver())
 	if diags.HasError() {
 		t.Fatalf("apiPayload: %v", diags)
 	}
@@ -351,7 +351,7 @@ func TestPoolResponseToModel_SingleDiskVdevs(t *testing.T) {
 	api.Topology.Spare = []poolVdev{{Type: "DISK", Disk: "sdg"}}
 
 	var m PoolModel
-	if diags := responseToModel(ctx, api, &m); diags.HasError() {
+	if diags := responseToModel(ctx, api, &m, testResolver()); diags.HasError() {
 		t.Fatalf("responseToModel: %v", diags)
 	}
 

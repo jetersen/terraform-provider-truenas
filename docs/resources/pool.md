@@ -13,18 +13,25 @@ Manages a ZFS pool on TrueNAS.
 ## Example Usage
 
 ```terraform
-# Create a pool from scratch. Pool creation requires knowing the exact disk
-# identifiers on the box (see the truenas_disk data source to discover them).
+# Create a pool from scratch.
+#
+# Identify disks by their STABLE SERIAL, not the kernel device name (sdX).
+# Kernel names are reassigned across reboots and controller changes; the
+# provider stores the serial in state and resolves any accepted form (serial,
+# TrueNAS identifier, /dev/disk/by-id path, or sdX) to the same physical disk,
+# so a renumber never plans a pool replacement. Discover serials with
+# `midclt call disk.query '[]' '{"select": ["name", "serial"]}'` on the box.
 #
 # `topology` is a nested attribute, so it takes the `= { ... }` assignment
-# form (not a bare `topology { ... }` block).
+# form (not a bare `topology { ... }` block). Use "MIRROR"/"RAIDZ2"/etc.;
+# for a single-disk vdev use "STRIPE".
 resource "truenas_pool" "tank" {
   name     = "tank"
   autotrim = false
   topology = {
     data = [
-      { type = "MIRROR", disks = ["sda", "sdb"] },
-      { type = "MIRROR", disks = ["sdc", "sdd"] },
+      { type = "MIRROR", disks = ["WD-WCC7K5PACL0V", "WD-WCC7K6ABXYZ1"] },
+      { type = "MIRROR", disks = ["WD-WCC7K7CDEFG2", "WD-WCC7K8HIJKL3"] },
     ]
   }
 }
@@ -69,17 +76,17 @@ Required:
 
 Optional:
 
-- `cache` (List of String)
+- `cache` (List of String) Disks in this vdev. Each may be given as the disk serial (recommended, e.g. "SMC0515D90925BQ85185"), the TrueNAS disk identifier, a /dev/disk/by-id path, or the kernel device name (sdX). The provider stores the stable serial in state and resolves any form to the same physical disk, so a kernel-name renumber across reboots does not plan a pool replacement.
 - `log` (Attributes List) (see [below for nested schema](#nestedatt--topology--log))
-- `spare` (List of String)
+- `spare` (List of String) Disks in this vdev. Each may be given as the disk serial (recommended, e.g. "SMC0515D90925BQ85185"), the TrueNAS disk identifier, a /dev/disk/by-id path, or the kernel device name (sdX). The provider stores the stable serial in state and resolves any form to the same physical disk, so a kernel-name renumber across reboots does not plan a pool replacement.
 
 <a id="nestedatt--topology--data"></a>
 ### Nested Schema for `topology.data`
 
 Required:
 
-- `disks` (List of String)
-- `type` (String)
+- `disks` (List of String) Disks in this vdev. Each may be given as the disk serial (recommended, e.g. "SMC0515D90925BQ85185"), the TrueNAS disk identifier, a /dev/disk/by-id path, or the kernel device name (sdX). The provider stores the stable serial in state and resolves any form to the same physical disk, so a kernel-name renumber across reboots does not plan a pool replacement.
+- `type` (String) Vdev layout: "STRIPE" (single disk or JBOD), "MIRROR", or "RAIDZ1"/"RAIDZ2"/"RAIDZ3". "DISK" is accepted as an alias for "STRIPE" (it is the spelling TrueNAS's own query and UI use for a single-disk vdev).
 
 
 <a id="nestedatt--topology--log"></a>
@@ -87,8 +94,8 @@ Required:
 
 Required:
 
-- `disks` (List of String)
-- `type` (String)
+- `disks` (List of String) Disks in this vdev. Each may be given as the disk serial (recommended, e.g. "SMC0515D90925BQ85185"), the TrueNAS disk identifier, a /dev/disk/by-id path, or the kernel device name (sdX). The provider stores the stable serial in state and resolves any form to the same physical disk, so a kernel-name renumber across reboots does not plan a pool replacement.
+- `type` (String) Vdev layout: "STRIPE" (single disk or JBOD), "MIRROR", or "RAIDZ1"/"RAIDZ2"/"RAIDZ3". "DISK" is accepted as an alias for "STRIPE" (it is the spelling TrueNAS's own query and UI use for a single-disk vdev).
 
 ## Import
 

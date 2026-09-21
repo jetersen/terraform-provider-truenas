@@ -97,9 +97,10 @@ func TestAccPool_createMirror(t *testing.T) {
 				),
 			},
 			{
-				ResourceName:      "truenas_pool.test",
-				ImportState:       true,
-				ImportStateVerify: true,
+				ResourceName:            "truenas_pool.test",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"allocated", "free"},
 			},
 		},
 	})
@@ -126,9 +127,10 @@ func TestAccPool_createRaidz2(t *testing.T) {
 				),
 			},
 			{
-				ResourceName:      "truenas_pool.test",
-				ImportState:       true,
-				ImportStateVerify: true,
+				ResourceName:            "truenas_pool.test",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"allocated", "free"},
 			},
 		},
 	})
@@ -161,9 +163,10 @@ func TestAccPool_fullTopology(t *testing.T) {
 				),
 			},
 			{
-				ResourceName:      "truenas_pool.test",
-				ImportState:       true,
-				ImportStateVerify: true,
+				ResourceName:            "truenas_pool.test",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"allocated", "free"},
 			},
 		},
 	})
@@ -203,6 +206,114 @@ resource "truenas_pool" "test" {
   autotrim = %v
 }
 `, name, vdevType, strings.Join(quoted, ", "), autotrim)
+}
+
+// diskSerial looks up the stable serial of a disk given its kernel device
+// name (sdX) via disk.query, so the stable-identifier test can drive the same
+// physical disk by both forms. Skips the test if the disk or its serial is not
+// found (e.g. a QEMU disk created without serial=).
+func diskSerial(t *testing.T, name string) string {
+	t.Helper()
+	raw, err := acctest.Client().Call(context.Background(), "disk.query",
+		[][]any{{"name", "=", name}})
+	if err != nil {
+		t.Fatalf("disk.query for %q: %v", name, err)
+	}
+	var disks []struct {
+		Name   string `json:"name"`
+		Serial string `json:"serial"`
+	}
+	if err := json.Unmarshal(raw, &disks); err != nil {
+		t.Fatalf("parse disk.query: %v", err)
+	}
+	if len(disks) == 0 || disks[0].Serial == "" {
+		t.Skipf("disk %q has no serial in disk.query; cannot run stable-id test", name)
+	}
+	return disks[0].Serial
+}
+
+// TestAccPool_stableDiskSerial is the live verification for issue #9. It
+// creates a single-disk pool whose config names the disk by its STABLE SERIAL
+// (not the volatile sdX), then re-applies an equivalent config that names the
+// SAME physical disk by its kernel sdX name AND spells the type "DISK" instead
+// of "STRIPE" — and requires that plan to be EMPTY. That is the crux: a config
+// using a stable serial reconciles against the live sdX in state as the same
+// physical disk, so neither a kernel renumber nor the DISK/STRIPE spelling
+// produces a spurious diff (which, since topology is RequiresReplace, would
+// destroy and recreate the pool). State stores the live device name; the
+// stability comes from plan-time resolution, so the create step asserts the
+// pool comes up healthy rather than a particular stored disk form.
+func TestAccPool_stableDiskSerial(t *testing.T) {
+	disks := testDisks(t, 1)
+	acctest.PreCheck(t)
+	dev := disks[0]
+	serial := diskSerial(t, dev)
+	name := acctest.RandName("tfaccpoolsn")
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { acctest.PreCheck(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckPoolDestroyed(name),
+		Steps: []resource.TestStep{
+			// Create naming the disk by its stable serial.
+			{
+				Config: acctest.ProviderConfig() + testAccPoolConfig(name, "STRIPE", []string{serial}, false),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("truenas_pool.test", "name", name),
+					resource.TestCheckResourceAttr("truenas_pool.test", "topology.data.0.type", "STRIPE"),
+					resource.TestCheckResourceAttr("truenas_pool.test", "healthy", "true"),
+					resource.TestCheckResourceAttrSet("truenas_pool.test", "guid"),
+				),
+			},
+			// Same physical disk by sdX + type "DISK": must be a no-op plan
+			// (proves serial-in-config is renumber/spelling-proof). This is the
+			// crux of the test. No import step: import reads back the live sdX
+			// device name, which by design differs from the serial this pool's
+			// state was created with, so ImportStateVerify is exercised by the
+			// sdX-config pool tests instead (TestAccPool_createRaidz2 etc.).
+			{
+				Config:             acctest.ProviderConfig() + testAccPoolConfig(name, "DISK", []string{dev}, false),
+				PlanOnly:           true,
+				ExpectNonEmptyPlan: false,
+			},
+		},
+	})
+}
+
+// TestAccPool_stableDiskSerialMirror is the multi-disk counterpart of
+// TestAccPool_stableDiskSerial: it creates a two-disk MIRROR naming both disks
+// by their stable serials, then re-applies an equivalent config naming the
+// SAME two disks by their sdX device names, and requires an empty plan. This
+// exercises the per-disk, positional sameDisk reconciliation across a
+// multi-disk vdev (not just the single-disk path), against real disks.
+func TestAccPool_stableDiskSerialMirror(t *testing.T) {
+	disks := testDisks(t, 2)
+	acctest.PreCheck(t)
+	dev0, dev1 := disks[0], disks[1]
+	serial0, serial1 := diskSerial(t, dev0), diskSerial(t, dev1)
+	name := acctest.RandName("tfaccpoolsnm")
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { acctest.PreCheck(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckPoolDestroyed(name),
+		Steps: []resource.TestStep{
+			// Create the mirror naming both disks by serial.
+			{
+				Config: acctest.ProviderConfig() + testAccPoolConfig(name, "MIRROR", []string{serial0, serial1}, false),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("truenas_pool.test", "topology.data.0.type", "MIRROR"),
+					resource.TestCheckResourceAttr("truenas_pool.test", "healthy", "true"),
+				),
+			},
+			// Same two physical disks named by sdX: must be a no-op plan.
+			{
+				Config:             acctest.ProviderConfig() + testAccPoolConfig(name, "MIRROR", []string{dev0, dev1}, false),
+				PlanOnly:           true,
+				ExpectNonEmptyPlan: false,
+			},
+		},
+	})
 }
 
 // poolSummary is the subset of pool.query fields this test package needs

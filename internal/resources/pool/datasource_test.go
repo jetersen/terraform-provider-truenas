@@ -56,7 +56,7 @@ func TestPoolResponseToDataSourceModel(t *testing.T) {
 	api.Topology.Spare = []poolVdev{}
 
 	var m PoolDataSourceModel
-	diags := responseToDataSourceModel(ctx, api, &m)
+	diags := responseToDataSourceModel(ctx, api, &m, testResolver())
 	if diags.HasError() {
 		t.Fatalf("responseToDataSourceModel returned errors: %v", diags)
 	}

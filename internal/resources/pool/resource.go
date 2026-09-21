@@ -15,6 +15,7 @@ import (
 
 var _ resource.Resource = &PoolResource{}
 var _ resource.ResourceWithImportState = &PoolResource{}
+var _ resource.ResourceWithModifyPlan = &PoolResource{}
 
 // PoolResource manages a ZFS pool via the TrueNAS WebSocket API.
 type PoolResource struct {
@@ -45,6 +46,63 @@ func (r *PoolResource) Configure(_ context.Context, req resource.ConfigureReques
 	r.client = c
 }
 
+// diskResolver builds a disk-name resolver from disk.query. A failure is
+// non-fatal: newDiskResolver returns a usable empty resolver whose lookups
+// fall back to the raw name, so a transient disk.query hiccup never blocks an
+// otherwise-valid pool operation (the worst case is state keeps the volatile
+// sdX name, i.e. the pre-#9 behavior) — hence the error is intentionally
+// dropped here rather than surfaced as a diagnostic.
+func (r *PoolResource) diskResolver(ctx context.Context) *diskResolver {
+	res, _ := newDiskResolver(ctx, r.client)
+	return res
+}
+
+// ModifyPlan reconciles the planned topology against state so that a disk
+// named in a different form than state — but pointing at the same physical
+// disk — does not read as a change and force a pool replacement (issue #9),
+// and so a "DISK"/"STRIPE" type spelling difference likewise collapses. It
+// runs after the topology attribute's RequiresReplace modifier but before
+// Terraform core makes the final replacement determination against the
+// returned plan, so a suppressed form-only difference does not trigger
+// replacement while a real disk swap or topology change still does.
+func (r *PoolResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
+	if req.Plan.Raw.IsNull() { // destroy
+		return
+	}
+	if r.client == nil { // not configured (e.g. some plan-only paths)
+		return
+	}
+
+	var plan PoolModel
+	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Nothing to reconcile on Create: there is no prior state, and Terraform
+	// forbids a plan modifier from setting a Required attribute (topology
+	// disks/type) to any value other than the config value when there is no
+	// prior state to normalize against. Create stores the planned (config-form)
+	// topology verbatim so applied == planned; the first Read canonicalizes it
+	// to serials, and subsequent plans reconcile against that state here.
+	if req.State.Raw.IsNull() {
+		return
+	}
+	var state PoolModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	newTopo, d := reconcilePlanTopology(ctx, plan.Topology, &state.Topology, r.diskResolver(ctx))
+	resp.Diagnostics.Append(d...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	plan.Topology = newTopo
+	resp.Diagnostics.Append(resp.Plan.Set(ctx, &plan)...)
+}
+
 func (r *PoolResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var plan PoolModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
@@ -52,7 +110,8 @@ func (r *PoolResource) Create(ctx context.Context, req resource.CreateRequest, r
 		return
 	}
 
-	payload, diags := plan.apiPayload(ctx)
+	res := r.diskResolver(ctx)
+	payload, diags := plan.apiPayload(ctx, res)
 	resp.Diagnostics.Append(diags...)
 	if resp.Diagnostics.HasError() {
 		return
@@ -90,10 +149,17 @@ func (r *PoolResource) Create(ctx context.Context, req resource.CreateRequest, r
 		}
 	}
 
-	resp.Diagnostics.Append(responseToModel(ctx, &apiResp, &plan)...)
+	// Preserve the planned (config-form) topology: Terraform requires the
+	// applied state of the Required topology to equal what was planned, and the
+	// plan carries the disk names/type spellings exactly as the user wrote them
+	// (responseToModel would instead substitute the canonical serials/types the
+	// next Read will store). The first Read after create canonicalizes state.
+	plannedTopo := plan.Topology
+	resp.Diagnostics.Append(responseToModel(ctx, &apiResp, &plan, res)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	plan.Topology = applyPlannedTopology(plannedTopo, plan.Topology)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -120,7 +186,7 @@ func (r *PoolResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 		return
 	}
 
-	resp.Diagnostics.Append(responseToModel(ctx, &apiResp, &state)...)
+	resp.Diagnostics.Append(responseToModel(ctx, &apiResp, &state, r.diskResolver(ctx))...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
@@ -134,31 +200,19 @@ func (r *PoolResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		return
 	}
 
-	// Only autotrim is updatable; topology and name are ForceNew.
-	_, err := r.client.CallJob(ctx, "pool.update", plan.ID.ValueInt64(),
-		map[string]any{"autotrim": autotrimStr(plan.AutoTrim.ValueBool())})
-	if err != nil {
+	// Only autotrim is updatable; topology and name are ForceNew, so this is the
+	// only field that changes. Apply it and persist the plan as-is rather than
+	// re-reading: the computed pool attributes carry UseStateForUnknown, so the
+	// plan already holds their (known) prior values, and overwriting them with a
+	// fresh read here would make the applied state differ from the plan for the
+	// live counters (allocated/free) — "Provider produced inconsistent result
+	// after apply". They are refreshed on the next Read.
+	if _, err := r.client.CallJob(ctx, "pool.update", plan.ID.ValueInt64(),
+		map[string]any{"autotrim": autotrimStr(plan.AutoTrim.ValueBool())}); err != nil {
 		resp.Diagnostics.AddError("Update pool failed", err.Error())
 		return
 	}
 
-	// Re-read to get computed fields after update.
-	raw, err := r.client.CallRead(ctx, "pool.get_instance", plan.ID.ValueInt64())
-	if err != nil {
-		resp.Diagnostics.AddError("Read after update failed", err.Error())
-		return
-	}
-
-	var apiResp poolAPI
-	if err := json.Unmarshal(raw, &apiResp); err != nil {
-		resp.Diagnostics.AddError("Parse response", err.Error())
-		return
-	}
-
-	resp.Diagnostics.Append(responseToModel(ctx, &apiResp, &plan)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -209,7 +263,7 @@ func (r *PoolResource) ImportState(ctx context.Context, req resource.ImportState
 	}
 
 	var state PoolModel
-	resp.Diagnostics.Append(responseToModel(ctx, &pools[0], &state)...)
+	resp.Diagnostics.Append(responseToModel(ctx, &pools[0], &state, r.diskResolver(ctx))...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

@@ -68,7 +68,10 @@ func (d *PoolDataSource) Read(ctx context.Context, req datasource.ReadRequest, r
 		return
 	}
 
-	resp.Diagnostics.Append(responseToDataSourceModel(ctx, &pools[0], &state)...)
+	// Resolve topology disk names to stable serials (issue #9); a disk.query
+	// failure is non-fatal (empty resolver falls back to raw names).
+	res, _ := newDiskResolver(ctx, d.client)
+	resp.Diagnostics.Append(responseToDataSourceModel(ctx, &pools[0], &state, res)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}

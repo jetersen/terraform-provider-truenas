@@ -34,7 +34,8 @@ output "mountpoint" {
 resource "truenas_pool" "tank" {
   name = "tank"
   topology = {
-    data = [{ type = "MIRROR", disks = ["sda", "sdb"] }]
+    # Identify disks by stable serial, not the volatile sdX kernel name.
+    data = [{ type = "MIRROR", disks = ["WD-WCC7K5PACL0V", "WD-WCC7K6ABXYZ1"] }]
   }
 }
 

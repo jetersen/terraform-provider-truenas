@@ -41,8 +41,8 @@ func resourceSchema() schema.Schema {
 						Required: true,
 						NestedObject: schema.NestedAttributeObject{
 							Attributes: map[string]schema.Attribute{
-								"type":  schema.StringAttribute{Required: true},
-								"disks": schema.ListAttribute{Required: true, ElementType: types.StringType},
+								"type":  schema.StringAttribute{Required: true, Description: vdevTypeDesc},
+								"disks": schema.ListAttribute{Required: true, ElementType: types.StringType, Description: disksDesc},
 							},
 						},
 					},
@@ -54,8 +54,8 @@ func resourceSchema() schema.Schema {
 						},
 						NestedObject: schema.NestedAttributeObject{
 							Attributes: map[string]schema.Attribute{
-								"type":  schema.StringAttribute{Required: true},
-								"disks": schema.ListAttribute{Required: true, ElementType: types.StringType},
+								"type":  schema.StringAttribute{Required: true, Description: vdevTypeDesc},
+								"disks": schema.ListAttribute{Required: true, ElementType: types.StringType, Description: disksDesc},
 							},
 						},
 					},
@@ -63,6 +63,7 @@ func resourceSchema() schema.Schema {
 						Optional:    true,
 						Computed:    true,
 						ElementType: types.StringType,
+						Description: disksDesc,
 						PlanModifiers: []planmodifier.List{
 							listplanmodifier.UseStateForUnknown(),
 						},
@@ -71,6 +72,7 @@ func resourceSchema() schema.Schema {
 						Optional:    true,
 						Computed:    true,
 						ElementType: types.StringType,
+						Description: disksDesc,
 						PlanModifiers: []planmodifier.List{
 							listplanmodifier.UseStateForUnknown(),
 						},
@@ -84,16 +86,38 @@ func resourceSchema() schema.Schema {
 					boolplanmodifier.UseStateForUnknown(),
 				},
 			},
-			"guid":      schema.StringAttribute{Computed: true},
-			"status":    schema.StringAttribute{Computed: true},
-			"healthy":   schema.BoolAttribute{Computed: true},
-			"path":      schema.StringAttribute{Computed: true},
-			"size":      schema.Int64Attribute{Computed: true},
-			"free":      schema.Int64Attribute{Computed: true},
-			"allocated": schema.Int64Attribute{Computed: true},
+			// These pure-Computed attributes carry UseStateForUnknown so a plan
+			// that makes no real change keeps their known state values instead
+			// of proposing them as "(known after apply)". Without it, any
+			// config edit that reconciles to a no-op (e.g. renaming a disk from
+			// sdX to its serial, or "DISK" vs "STRIPE") would still show a
+			// spurious in-place update of every computed field (issue #9). On a
+			// genuine replace they are recomputed regardless.
+			"guid":      schema.StringAttribute{Computed: true, PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()}},
+			"status":    schema.StringAttribute{Computed: true, PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()}},
+			"healthy":   schema.BoolAttribute{Computed: true, PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()}},
+			"path":      schema.StringAttribute{Computed: true, PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()}},
+			"size":      schema.Int64Attribute{Computed: true, PlanModifiers: []planmodifier.Int64{int64planmodifier.UseStateForUnknown()}},
+			"free":      schema.Int64Attribute{Computed: true, PlanModifiers: []planmodifier.Int64{int64planmodifier.UseStateForUnknown()}},
+			"allocated": schema.Int64Attribute{Computed: true, PlanModifiers: []planmodifier.Int64{int64planmodifier.UseStateForUnknown()}},
 		},
 	}
 }
+
+// vdevTypeDesc and disksDesc document the topology vdev fields, including the
+// stable-identifier behavior added for issue #9.
+const (
+	vdevTypeDesc = `Vdev layout: "STRIPE" (single disk or JBOD), "MIRROR", or ` +
+		`"RAIDZ1"/"RAIDZ2"/"RAIDZ3". "DISK" is accepted as an alias for ` +
+		`"STRIPE" (it is the spelling TrueNAS's own query and UI use for a ` +
+		`single-disk vdev).`
+	disksDesc = `Disks in this vdev. Each may be given as the disk serial ` +
+		`(recommended, e.g. "SMC0515D90925BQ85185"), the TrueNAS disk ` +
+		`identifier, a /dev/disk/by-id path, or the kernel device name ` +
+		`(sdX). The provider stores the stable serial in state and resolves ` +
+		`any form to the same physical disk, so a kernel-name renumber ` +
+		`across reboots does not plan a pool replacement.`
+)
 
 func datasourceSchema() dschema.Schema {
 	return dschema.Schema{
