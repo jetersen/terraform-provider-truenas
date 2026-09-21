@@ -121,8 +121,16 @@ type poolVdev struct {
 	Disk string `json:"disk"`
 }
 
+// poolDisk is a member of a vdev. It is usually a leaf DISK carrying its own
+// "disk" name, but it can itself be a nested vdev — a "SPARE" vdev once a hot
+// spare has stepped in for a faulted member, or a "REPLACING" vdev mid-resilver
+// — in which case it carries no "disk" of its own and its Children hold the
+// real devices (Children[0] is the original member, Children[1] the
+// spare/replacement). Hence Type/Children are decoded too. See childDisk.
 type poolDisk struct {
-	Disk string `json:"disk"`
+	Disk     string     `json:"disk"`
+	Type     string     `json:"type"`
+	Children []poolDisk `json:"children"`
 }
 
 // autotrimParsed decodes the "parsed" field of the autotrim ZFS property
@@ -318,9 +326,30 @@ func vdevDisks(v poolVdev) []string {
 	}
 	disks := make([]string, len(v.Children))
 	for i, c := range v.Children {
-		disks[i] = c.Disk
+		disks[i] = childDisk(c)
 	}
 	return disks
+}
+
+// childDisk returns the representative device name of a vdev child, so a
+// degraded pool reads back with its configured membership rather than a
+// transient repair structure. A leaf DISK carries its own "disk". A nested
+// vdev child — a "SPARE" that has activated for a faulted member, or a
+// "REPLACING" vdev during a resilver — carries no "disk"; its first child is
+// the ORIGINAL configured member (the second is the spare/replacement), so the
+// slot is represented by that original. This is what keeps a hot-spare
+// activation from looking like a topology change (which, since topology is
+// RequiresReplace, would otherwise plan a destroy/recreate of a degraded pool
+// — see model.go's issue #9 handling and TestVdevDisks_spareActive, plus the
+// live import-of-a-degraded-pool verification recorded in the changelog).
+func childDisk(c poolDisk) string {
+	if c.Disk != "" {
+		return c.Disk
+	}
+	if len(c.Children) > 0 {
+		return childDisk(c.Children[0])
+	}
+	return ""
 }
 
 // vdevType normalizes a vdev's reported type for round-tripping with the create

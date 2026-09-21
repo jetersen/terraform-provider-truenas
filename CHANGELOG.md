@@ -6,6 +6,19 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Fixed
+- `truenas_pool`: a pool that has gone **degraded with a hot spare active** no
+  longer plans a destroy/recreate. When a spare steps in for a faulted member,
+  `pool.query` nests a `SPARE` vdev (original faulted disk + spare) inside the
+  data vdev; the provider read the mirror's members as `[disk, ""]`, which
+  differed from the configured membership and — because `topology` is
+  `RequiresReplace` — planned a destroy/recreate of a degraded pool (a
+  data-loss hazard). A nested `SPARE`/`REPLACING` child is now represented by
+  its original member, so a degraded, spare-covered pool reads back with its
+  configured membership and plans no change. Verified live: a real hot-spare
+  activation on physical disks, imported with a serial-pinned config, plans
+  "No changes."
+
 ## [1.0.9] - 2026-09-21
 
 ### Fixed
