@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -311,6 +312,34 @@ func TestAccPool_stableDiskSerialMirror(t *testing.T) {
 				Config:             acctest.ProviderConfig() + testAccPoolConfig(name, "MIRROR", []string{dev0, dev1}, false),
 				PlanOnly:           true,
 				ExpectNonEmptyPlan: false,
+			},
+		},
+	})
+}
+
+// TestAccPool_topologyChangeRefused verifies the data-safety guard: a REAL
+// topology change (swapping the data disk for a different physical disk) is
+// refused with an error rather than planned as a destroy/recreate of the pool.
+func TestAccPool_topologyChangeRefused(t *testing.T) {
+	disks := testDisks(t, 2)
+	acctest.PreCheck(t)
+	name := acctest.RandName("tfaccpoolref")
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { acctest.PreCheck(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckPoolDestroyed(name),
+		Steps: []resource.TestStep{
+			{
+				Config: acctest.ProviderConfig() + testAccPoolConfig(name, "STRIPE", disks[:1], false),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("truenas_pool.test", "healthy", "true"),
+				),
+			},
+			// Swap to a different physical disk — must be refused, not replaced.
+			{
+				Config:      acctest.ProviderConfig() + testAccPoolConfig(name, "STRIPE", disks[1:2], false),
+				ExpectError: regexp.MustCompile("topology cannot be changed in place"),
 			},
 		},
 	})

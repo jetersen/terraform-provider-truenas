@@ -41,6 +41,43 @@ func TestVdevDisks_spareActive(t *testing.T) {
 	}
 }
 
+// TestVdevDisks_removedMember verifies a physically removed data-mirror member
+// (status REMOVED: disk/device null, but unavail_disk carries the serial) reads
+// back by its serial rather than as an empty slot — so a serial-pinned config
+// still matches it and no destroy/recreate is planned for the degraded pool.
+func TestVdevDisks_removedMember(t *testing.T) {
+	const raw = `{
+	  "type": "MIRROR",
+	  "children": [
+	    { "type": "DISK", "disk": "sdd", "children": [] },
+	    { "type": "DISK", "disk": null, "device": null, "children": [],
+	      "unavail_disk": { "serial": "TFPOOL4", "name": "sde", "identifier": "{serial}TFPOOL4" } }
+	  ]
+	}`
+	var v poolVdev
+	if err := json.Unmarshal([]byte(raw), &v); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if got, want := vdevDisks(v), []string{"sdd", "TFPOOL4"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("vdevDisks(removed member) = %v, want %v", got, want)
+	}
+}
+
+// TestVdevDisks_removedCache verifies a removed L2ARC cache device (a top-level
+// leaf vdev with disk null + unavail_disk) reads back by its serial, so the
+// cache list does not collapse to an empty name and force a replacement.
+func TestVdevDisks_removedCache(t *testing.T) {
+	const raw = `{ "type": "DISK", "disk": null, "device": null, "children": [],
+	  "unavail_disk": { "serial": "TFPOOL6", "name": "sdf", "identifier": "{serial}TFPOOL6" } }`
+	var v poolVdev
+	if err := json.Unmarshal([]byte(raw), &v); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if got, want := vdevDisks(v), []string{"TFPOOL6"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("vdevDisks(removed cache) = %v, want %v", got, want)
+	}
+}
+
 // TestVdevDisks_healthyAndSingle covers the ordinary shapes still work: a
 // multi-disk mirror lists its leaf disks, and a single-disk vdev reports its
 // device at the vdev top level.

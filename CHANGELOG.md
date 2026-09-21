@@ -6,6 +6,30 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Changed
+- `truenas_pool`: the provider now **refuses to ever plan a pool
+  destroy/recreate** from a configuration change. `name` and `topology` are no
+  longer `RequiresReplace`; instead a post-create change to either is rejected
+  at plan time with an actionable error, because replacing a ZFS pool destroys
+  all of its data and is essentially never a valid automatic outcome (the same
+  stance as AWS `deletion_protection`/`force_destroy` and Terraform's
+  `prevent_destroy`). A genuine topology change (grow, disk replace,
+  add/remove cache/log/spare) is made in TrueNAS/`zpool` and reconciled with
+  `terraform apply -refresh-only`; a deliberate teardown is still `terraform
+  destroy`. Adding `lifecycle { prevent_destroy = true }` to pool resources is
+  recommended as defense-in-depth (now shown in the example).
+
+### Fixed
+- `truenas_pool`: a pool with a **physically removed disk** — a pulled or failed
+  data member, or a removed cache/log device — no longer plans a
+  destroy/recreate. `pool.query` reports a `REMOVED`/`UNAVAIL` device with
+  `disk`/`device` null (and the disk drops out of `disk.query`), but still
+  carries an `unavail_disk` record with the disk's stable serial. The provider
+  now recovers the member identity from that serial, so a serial-pinned config
+  matches the removed member and the degraded pool plans no change. Verified
+  live (member pulled from a mirror, pool imported, plans "No changes").
+  Complements the hot-spare-activation fix in v1.0.10.
+
 ## [1.0.10] - 2026-09-21
 
 ### Fixed

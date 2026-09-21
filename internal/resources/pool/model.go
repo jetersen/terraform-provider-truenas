@@ -119,6 +119,21 @@ type poolVdev struct {
 	// single-disk data vdev), where the device is reported at the vdev's top
 	// level with an empty children array and type "DISK".
 	Disk string `json:"disk"`
+	// Unavail is populated (and Disk/device are null) when the device has been
+	// physically removed (status REMOVED/UNAVAIL). It still carries the disk's
+	// stable serial, so the member can be identified even though it has dropped
+	// out of disk.query — see diskName / issue #9's failure-mode handling.
+	Unavail *unavailDisk `json:"unavail_disk"`
+}
+
+// unavailDisk is the subset of pool.query's "unavail_disk" record the provider
+// needs to recover a removed member's identity. Probed live (disk pulled from a
+// mirror and from an L2ARC cache on the test VM): a REMOVED leaf reports
+// "disk": null / "device": null but a full "unavail_disk" with the serial.
+type unavailDisk struct {
+	Serial     string `json:"serial"`
+	Name       string `json:"name"`
+	Identifier string `json:"identifier"`
 }
 
 // poolDisk is a member of a vdev. It is usually a leaf DISK carrying its own
@@ -128,9 +143,10 @@ type poolVdev struct {
 // real devices (Children[0] is the original member, Children[1] the
 // spare/replacement). Hence Type/Children are decoded too. See childDisk.
 type poolDisk struct {
-	Disk     string     `json:"disk"`
-	Type     string     `json:"type"`
-	Children []poolDisk `json:"children"`
+	Disk     string       `json:"disk"`
+	Type     string       `json:"type"`
+	Children []poolDisk   `json:"children"`
+	Unavail  *unavailDisk `json:"unavail_disk"`
 }
 
 // autotrimParsed decodes the "parsed" field of the autotrim ZFS property
@@ -319,8 +335,8 @@ func autotrimStr(on bool) string {
 // at the vdev's top level with empty children, so fall back to that.
 func vdevDisks(v poolVdev) []string {
 	if len(v.Children) == 0 {
-		if v.Disk != "" {
-			return []string{v.Disk}
+		if name := diskName(v.Disk, v.Unavail); name != "" {
+			return []string{name}
 		}
 		return []string{}
 	}
@@ -329,6 +345,35 @@ func vdevDisks(v poolVdev) []string {
 		disks[i] = childDisk(c)
 	}
 	return disks
+}
+
+// diskName returns the name to represent a leaf device by. Normally that is its
+// live kernel device name (disk). When the device has been physically removed
+// (status REMOVED/UNAVAIL) disk is null, but pool.query still carries an
+// unavail_disk record with the disk's STABLE serial — probed live for both a
+// pulled mirror member and a pulled L2ARC cache device. Falling back to that
+// serial (then name, then identifier) is what keeps a removed disk from
+// reading back as an empty slot, which — because topology is RequiresReplace —
+// would otherwise plan a destroy/recreate of an already-degraded pool. A
+// serial-pinned config then matches the removed member by string. The removed
+// disk also drops out of disk.query, so the plan-time resolver cannot map it;
+// the serial recovered here is the only stable handle left.
+func diskName(disk string, unavail *unavailDisk) string {
+	if disk != "" {
+		return disk
+	}
+	if unavail != nil {
+		if unavail.Serial != "" {
+			return unavail.Serial
+		}
+		if unavail.Name != "" {
+			return unavail.Name
+		}
+		if unavail.Identifier != "" {
+			return unavail.Identifier
+		}
+	}
+	return ""
 }
 
 // childDisk returns the representative device name of a vdev child, so a
@@ -346,10 +391,12 @@ func childDisk(c poolDisk) string {
 	if c.Disk != "" {
 		return c.Disk
 	}
+	// A nested SPARE/REPLACING vdev: the first child is the original member.
 	if len(c.Children) > 0 {
 		return childDisk(c.Children[0])
 	}
-	return ""
+	// A removed leaf: recover its serial from the unavail_disk record.
+	return diskName(c.Disk, c.Unavail)
 }
 
 // vdevType normalizes a vdev's reported type for round-tripping with the create

@@ -57,14 +57,23 @@ func (r *PoolResource) diskResolver(ctx context.Context) *diskResolver {
 	return res
 }
 
-// ModifyPlan reconciles the planned topology against state so that a disk
-// named in a different form than state — but pointing at the same physical
-// disk — does not read as a change and force a pool replacement (issue #9),
-// and so a "DISK"/"STRIPE" type spelling difference likewise collapses. It
-// runs after the topology attribute's RequiresReplace modifier but before
-// Terraform core makes the final replacement determination against the
-// returned plan, so a suppressed form-only difference does not trigger
-// replacement while a real disk swap or topology change still does.
+// ModifyPlan does two things for a ZFS pool, whose data must never be put at
+// risk by a plan:
+//
+//  1. It reconciles the planned topology against state so a disk named in a
+//     different form than state — but pointing at the same physical disk, or a
+//     member that is merely degraded/removed — does not read as a change
+//     (issue #9), and so a "DISK"/"STRIPE" spelling difference collapses.
+//
+//  2. After reconciling, if the pool's topology or name has REALLY changed, it
+//     refuses the apply with an actionable error rather than letting it become
+//     a destroy/recreate. name and topology are not marked RequiresReplace
+//     precisely so this runs instead: replacing a pool destroys all its data,
+//     which is essentially never a valid automatic outcome (cf. AWS RDS/S3
+//     deletion_protection/force_destroy, and Terraform's own prevent_destroy).
+//     A genuine topology change is done in TrueNAS/zpool and reconciled with
+//     `terraform apply -refresh-only`; a deliberate teardown is `terraform
+//     destroy`.
 func (r *PoolResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
 	if req.Plan.Raw.IsNull() { // destroy
 		return
@@ -83,8 +92,8 @@ func (r *PoolResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRe
 	// forbids a plan modifier from setting a Required attribute (topology
 	// disks/type) to any value other than the config value when there is no
 	// prior state to normalize against. Create stores the planned (config-form)
-	// topology verbatim so applied == planned; the first Read canonicalizes it
-	// to serials, and subsequent plans reconcile against that state here.
+	// topology verbatim so applied == planned; the first Read canonicalizes it,
+	// and subsequent plans reconcile against that state here.
 	if req.State.Raw.IsNull() {
 		return
 	}
@@ -100,7 +109,46 @@ func (r *PoolResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRe
 		return
 	}
 	plan.Topology = newTopo
+
+	// Refuse a real topology or name change rather than destroy the pool.
+	if !plan.Name.Equal(state.Name) {
+		resp.Diagnostics.AddError(
+			"Pool cannot be renamed in place",
+			fmt.Sprintf("This resource's pool is named %q but the configuration now asks for %q. "+
+				"Renaming a ZFS pool cannot be done without destroying and recreating it, which would "+
+				"erase all of its data, so this provider will not do it automatically. Rename the pool "+
+				"outside Terraform if you truly intend to, or revert the name in configuration. To "+
+				"deliberately destroy this pool, use `terraform destroy`.",
+				state.Name.ValueString(), plan.Name.ValueString()),
+		)
+	}
+	if topologyChanged(newTopo, state.Topology) {
+		resp.Diagnostics.AddError(
+			"Pool topology cannot be changed in place",
+			"The configured pool topology differs from the pool's actual topology in a way that is not "+
+				"a harmless disk-name difference (a real change of vdevs or member disks). Applying it "+
+				"would require destroying and recreating the pool, erasing all of its data, so this "+
+				"provider refuses rather than plan that.\n\n"+
+				"If a disk failed or a spare stepped in, no configuration change is needed — the pool "+
+				"reconciles automatically. To actually change the topology (grow the pool, replace a "+
+				"disk, add/remove a cache/log/spare), do it in the TrueNAS UI or with `zpool`, then run "+
+				"`terraform apply -refresh-only` to reconcile Terraform state. To deliberately destroy "+
+				"and rebuild the pool, use `terraform destroy` (or `terraform apply -replace`).",
+		)
+	}
+
 	resp.Diagnostics.Append(resp.Plan.Set(ctx, &plan)...)
+}
+
+// topologyChanged reports whether a reconciled plan topology differs from state
+// in a way that represents a real change (different vdevs or member disks),
+// as opposed to a harmless disk-name-form difference that reconcilePlanTopology
+// has already collapsed to the state value.
+func topologyChanged(planned TopologyModel, state TopologyModel) bool {
+	return !planned.Data.Equal(state.Data) ||
+		!planned.Log.Equal(state.Log) ||
+		!planned.Cache.Equal(state.Cache) ||
+		!planned.Spare.Equal(state.Spare)
 }
 
 func (r *PoolResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
