@@ -15,6 +15,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/truenas/terraform-provider-truenas/internal/actions/snapshot_task_run"
 	"github.com/truenas/terraform-provider-truenas/internal/actions/ui_restart"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
 	"github.com/truenas/terraform-provider-truenas/internal/resources/acl_template"
@@ -434,6 +435,7 @@ func (p *TrueNASProvider) DataSources(_ context.Context) []func() datasource.Dat
 // Actions returns the provider's Terraform Actions (Terraform 1.14+).
 func (p *TrueNASProvider) Actions(_ context.Context) []func() action.Action {
 	return []func() action.Action{
+		snapshot_task_run.New,
 		ui_restart.New,
 	}
 }
