@@ -15,6 +15,9 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/truenas/terraform-provider-truenas/internal/actions/app_redeploy"
+	"github.com/truenas/terraform-provider-truenas/internal/actions/app_start"
+	"github.com/truenas/terraform-provider-truenas/internal/actions/app_stop"
 	"github.com/truenas/terraform-provider-truenas/internal/actions/cloudsync_run"
 	"github.com/truenas/terraform-provider-truenas/internal/actions/replication_run"
 	"github.com/truenas/terraform-provider-truenas/internal/actions/scrub_run"
@@ -438,6 +441,9 @@ func (p *TrueNASProvider) DataSources(_ context.Context) []func() datasource.Dat
 // Actions returns the provider's Terraform Actions (Terraform 1.14+).
 func (p *TrueNASProvider) Actions(_ context.Context) []func() action.Action {
 	return []func() action.Action{
+		app_redeploy.New,
+		app_start.New,
+		app_stop.New,
 		cloudsync_run.New,
 		replication_run.New,
 		scrub_run.New,
