@@ -21,6 +21,7 @@ import (
 	"github.com/truenas/terraform-provider-truenas/internal/actions/cloudsync_run"
 	"github.com/truenas/terraform-provider-truenas/internal/actions/replication_run"
 	"github.com/truenas/terraform-provider-truenas/internal/actions/scrub_run"
+	"github.com/truenas/terraform-provider-truenas/internal/actions/service_control"
 	"github.com/truenas/terraform-provider-truenas/internal/actions/snapshot_task_run"
 	"github.com/truenas/terraform-provider-truenas/internal/actions/ui_restart"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
@@ -447,6 +448,7 @@ func (p *TrueNASProvider) Actions(_ context.Context) []func() action.Action {
 		cloudsync_run.New,
 		replication_run.New,
 		scrub_run.New,
+		service_control.New,
 		snapshot_task_run.New,
 		ui_restart.New,
 	}
