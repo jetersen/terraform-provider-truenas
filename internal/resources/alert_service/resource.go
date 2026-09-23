@@ -12,10 +12,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 var _ resource.Resource = &AlertServiceResource{}
 var _ resource.ResourceWithImportState = &AlertServiceResource{}
+var _ resource.ResourceWithIdentity = &AlertServiceResource{}
 
 // AlertServiceResource implements the truenas_alert_service resource.
 type AlertServiceResource struct{ client *client.Client }
@@ -29,6 +31,10 @@ func (r *AlertServiceResource) Metadata(_ context.Context, req resource.Metadata
 
 func (r *AlertServiceResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+func (r *AlertServiceResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.IntIDIdentitySchema()
 }
 
 func (r *AlertServiceResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -88,6 +94,7 @@ func (r *AlertServiceResource) Create(ctx context.Context, req resource.CreateRe
 	// Keep the plan's attributes JSON string in state (write-what-you-said):
 	// the API may echo back a normalized/expanded attributes document.
 	responseToModel(&apiResp, &plan)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, plan.ID.ValueInt64())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -143,6 +150,7 @@ func (r *AlertServiceResource) Read(ctx context.Context, req resource.ReadReques
 		}
 	}
 
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, state.ID.ValueInt64())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -231,5 +239,6 @@ func (r *AlertServiceResource) ImportState(ctx context.Context, req resource.Imp
 	}
 	state.Attributes = types.StringValue(attrsJSON)
 
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, id)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }

@@ -12,10 +12,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 var _ resource.Resource = &CloudBackupResource{}
 var _ resource.ResourceWithImportState = &CloudBackupResource{}
+var _ resource.ResourceWithIdentity = &CloudBackupResource{}
 
 // CloudBackupResource implements the truenas_cloud_backup resource.
 type CloudBackupResource struct{ client *client.Client }
@@ -29,6 +31,10 @@ func (r *CloudBackupResource) Metadata(_ context.Context, req resource.MetadataR
 
 func (r *CloudBackupResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+func (r *CloudBackupResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.IntIDIdentitySchema()
 }
 
 func (r *CloudBackupResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -94,6 +100,7 @@ func (r *CloudBackupResource) Create(ctx context.Context, req resource.CreateReq
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, plan.ID.ValueInt64())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -142,6 +149,7 @@ func (r *CloudBackupResource) Read(ctx context.Context, req resource.ReadRequest
 		state.Attributes = types.StringValue(attrJSON)
 	}
 
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, state.ID.ValueInt64())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -237,5 +245,6 @@ func (r *CloudBackupResource) ImportState(ctx context.Context, req resource.Impo
 	}
 	state.Attributes = types.StringValue(attrJSON)
 
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, id)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }

@@ -11,10 +11,12 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 var _ resource.Resource = &StaticRouteResource{}
 var _ resource.ResourceWithImportState = &StaticRouteResource{}
+var _ resource.ResourceWithIdentity = &StaticRouteResource{}
 
 // StaticRouteResource implements the truenas_static_route resource.
 type StaticRouteResource struct{ client *client.Client }
@@ -28,6 +30,10 @@ func (r *StaticRouteResource) Metadata(_ context.Context, req resource.MetadataR
 
 func (r *StaticRouteResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+func (r *StaticRouteResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.IntIDIdentitySchema()
 }
 
 func (r *StaticRouteResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -87,6 +93,7 @@ func (r *StaticRouteResource) Create(ctx context.Context, req resource.CreateReq
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, plan.ID.ValueInt64())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -117,6 +124,7 @@ func (r *StaticRouteResource) Read(ctx context.Context, req resource.ReadRequest
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, state.ID.ValueInt64())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -203,5 +211,6 @@ func (r *StaticRouteResource) ImportState(ctx context.Context, req resource.Impo
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, id)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }

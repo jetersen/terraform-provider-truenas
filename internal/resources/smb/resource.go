@@ -11,10 +11,12 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 var _ resource.Resource = &SMBShareResource{}
 var _ resource.ResourceWithImportState = &SMBShareResource{}
+var _ resource.ResourceWithIdentity = &SMBShareResource{}
 
 // SMBShareResource implements the truenas_smb_share resource.
 type SMBShareResource struct{ client *client.Client }
@@ -28,6 +30,10 @@ func (r *SMBShareResource) Metadata(_ context.Context, req resource.MetadataRequ
 
 func (r *SMBShareResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+func (r *SMBShareResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.IntIDIdentitySchema()
 }
 
 func (r *SMBShareResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -87,6 +93,7 @@ func (r *SMBShareResource) Create(ctx context.Context, req resource.CreateReques
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, plan.ID.ValueInt64())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -117,6 +124,7 @@ func (r *SMBShareResource) Read(ctx context.Context, req resource.ReadRequest, r
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, state.ID.ValueInt64())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -203,5 +211,6 @@ func (r *SMBShareResource) ImportState(ctx context.Context, req resource.ImportS
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, id)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }

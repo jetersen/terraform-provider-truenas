@@ -13,10 +13,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 var _ resource.Resource = &ContainerDeviceResource{}
 var _ resource.ResourceWithImportState = &ContainerDeviceResource{}
+var _ resource.ResourceWithIdentity = &ContainerDeviceResource{}
 
 // ContainerDeviceResource implements the truenas_container_device resource.
 type ContainerDeviceResource struct{ client *client.Client }
@@ -30,6 +32,10 @@ func (r *ContainerDeviceResource) Metadata(_ context.Context, req resource.Metad
 
 func (r *ContainerDeviceResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+func (r *ContainerDeviceResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.IntIDIdentitySchema()
 }
 
 func (r *ContainerDeviceResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -123,6 +129,7 @@ func (r *ContainerDeviceResource) Create(ctx context.Context, req resource.Creat
 	// Keep the plan's Attributes JSON string in state (write-what-you-said):
 	// the API may normalize/add default keys.
 	responseToModel(apiResp, &plan)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, plan.ID.ValueInt64())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -167,6 +174,7 @@ func (r *ContainerDeviceResource) Read(ctx context.Context, req resource.ReadReq
 		state.Attributes = types.StringValue(attrJSON)
 	}
 
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, state.ID.ValueInt64())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -263,5 +271,6 @@ func (r *ContainerDeviceResource) ImportState(ctx context.Context, req resource.
 	}
 	state.Attributes = types.StringValue(attrJSON)
 
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, id)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }

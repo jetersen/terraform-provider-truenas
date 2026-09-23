@@ -12,10 +12,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 var _ resource.Resource = &WebshareResource{}
 var _ resource.ResourceWithImportState = &WebshareResource{}
+var _ resource.ResourceWithIdentity = &WebshareResource{}
 
 // WebshareResource implements the truenas_webshare resource.
 type WebshareResource struct{ client *client.Client }
@@ -29,6 +31,10 @@ func (r *WebshareResource) Metadata(_ context.Context, req resource.MetadataRequ
 
 func (r *WebshareResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+func (r *WebshareResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.IntIDIdentitySchema()
 }
 
 func (r *WebshareResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -107,6 +113,7 @@ func (r *WebshareResource) Create(ctx context.Context, req resource.CreateReques
 	}
 
 	responseToModel(apiResp, &plan)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, plan.ID.ValueInt64())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -133,6 +140,7 @@ func (r *WebshareResource) Read(ctx context.Context, req resource.ReadRequest, r
 	}
 
 	responseToModel(apiResp, &state)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, state.ID.ValueInt64())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -211,5 +219,6 @@ func (r *WebshareResource) ImportState(ctx context.Context, req resource.ImportS
 
 	var state WebshareModel
 	responseToModel(apiResp, &state)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, id)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }

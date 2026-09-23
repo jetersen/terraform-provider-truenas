@@ -11,10 +11,12 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 var _ resource.Resource = &AppRegistryResource{}
 var _ resource.ResourceWithImportState = &AppRegistryResource{}
+var _ resource.ResourceWithIdentity = &AppRegistryResource{}
 
 // AppRegistryResource implements the truenas_app_registry resource.
 type AppRegistryResource struct{ client *client.Client }
@@ -28,6 +30,10 @@ func (r *AppRegistryResource) Metadata(_ context.Context, req resource.MetadataR
 
 func (r *AppRegistryResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+func (r *AppRegistryResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.IntIDIdentitySchema()
 }
 
 func (r *AppRegistryResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -85,6 +91,7 @@ func (r *AppRegistryResource) Create(ctx context.Context, req resource.CreateReq
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, plan.ID.ValueInt64())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -115,6 +122,7 @@ func (r *AppRegistryResource) Read(ctx context.Context, req resource.ReadRequest
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, state.ID.ValueInt64())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -205,5 +213,6 @@ func (r *AppRegistryResource) ImportState(ctx context.Context, req resource.Impo
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, id)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }

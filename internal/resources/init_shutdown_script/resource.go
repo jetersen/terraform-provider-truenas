@@ -11,10 +11,12 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 var _ resource.Resource = &InitShutdownScriptResource{}
 var _ resource.ResourceWithImportState = &InitShutdownScriptResource{}
+var _ resource.ResourceWithIdentity = &InitShutdownScriptResource{}
 
 // InitShutdownScriptResource implements the truenas_init_shutdown_script
 // resource.
@@ -29,6 +31,10 @@ func (r *InitShutdownScriptResource) Metadata(_ context.Context, req resource.Me
 
 func (r *InitShutdownScriptResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+func (r *InitShutdownScriptResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.IntIDIdentitySchema()
 }
 
 func (r *InitShutdownScriptResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -73,6 +79,7 @@ func (r *InitShutdownScriptResource) Create(ctx context.Context, req resource.Cr
 	}
 
 	responseToModel(&apiResp, &plan)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, plan.ID.ValueInt64())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -100,6 +107,7 @@ func (r *InitShutdownScriptResource) Read(ctx context.Context, req resource.Read
 	}
 
 	responseToModel(&apiResp, &state)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, state.ID.ValueInt64())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -172,5 +180,6 @@ func (r *InitShutdownScriptResource) ImportState(ctx context.Context, req resour
 
 	var state InitShutdownScriptModel
 	responseToModel(&apiResp, &state)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, id)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }

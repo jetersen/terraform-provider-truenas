@@ -12,10 +12,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 var _ resource.Resource = &KeychainSSHKeyPairResource{}
 var _ resource.ResourceWithImportState = &KeychainSSHKeyPairResource{}
+var _ resource.ResourceWithIdentity = &KeychainSSHKeyPairResource{}
 
 // KeychainSSHKeyPairResource implements the truenas_keychain_ssh_keypair
 // resource.
@@ -30,6 +32,10 @@ func (r *KeychainSSHKeyPairResource) Metadata(_ context.Context, req resource.Me
 
 func (r *KeychainSSHKeyPairResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+func (r *KeychainSSHKeyPairResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.IntIDIdentitySchema()
 }
 
 func (r *KeychainSSHKeyPairResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -130,6 +136,7 @@ func (r *KeychainSSHKeyPairResource) Create(ctx context.Context, req resource.Cr
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, plan.ID.ValueInt64())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -168,6 +175,7 @@ func (r *KeychainSSHKeyPairResource) Read(ctx context.Context, req resource.Read
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, state.ID.ValueInt64())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -253,5 +261,6 @@ func (r *KeychainSSHKeyPairResource) ImportState(ctx context.Context, req resour
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, id)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }

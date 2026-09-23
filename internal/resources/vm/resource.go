@@ -11,10 +11,12 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 var _ resource.Resource = &VMResource{}
 var _ resource.ResourceWithImportState = &VMResource{}
+var _ resource.ResourceWithIdentity = &VMResource{}
 
 // VMResource implements the truenas_vm resource.
 type VMResource struct{ client *client.Client }
@@ -28,6 +30,10 @@ func (r *VMResource) Metadata(_ context.Context, req resource.MetadataRequest, r
 
 func (r *VMResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+func (r *VMResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.IntIDIdentitySchema()
 }
 
 func (r *VMResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -95,6 +101,7 @@ func (r *VMResource) Create(ctx context.Context, req resource.CreateRequest, res
 	}
 
 	responseToModel(apiResp, &plan)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, plan.ID.ValueInt64())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -116,6 +123,7 @@ func (r *VMResource) Read(ctx context.Context, req resource.ReadRequest, resp *r
 	}
 
 	responseToModel(apiResp, &state)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, state.ID.ValueInt64())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -206,5 +214,6 @@ func (r *VMResource) ImportState(ctx context.Context, req resource.ImportStateRe
 
 	var state VMModel
 	responseToModel(apiResp, &state)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, id)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
