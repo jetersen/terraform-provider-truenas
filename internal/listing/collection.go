@@ -28,7 +28,23 @@ func StreamCollection(
 	stream *list.ListResultsStream,
 	mapRow func(ctx context.Context, req list.ListRequest, raw json.RawMessage) list.ListResult,
 ) {
-	raw, err := c.CallRead(ctx, queryMethod, [][]any{})
+	StreamCollectionFiltered(ctx, c, queryMethod, [][]any{}, req, stream, mapRow)
+}
+
+// StreamCollectionFiltered is StreamCollection with an explicit query filter.
+// Use it when a *.query method is shared by multiple resource kinds that must
+// be distinguished by a discriminator (e.g. pool.dataset.query returning both
+// filesystem datasets and zvols).
+func StreamCollectionFiltered(
+	ctx context.Context,
+	c Client,
+	queryMethod string,
+	filter [][]any,
+	req list.ListRequest,
+	stream *list.ListResultsStream,
+	mapRow func(ctx context.Context, req list.ListRequest, raw json.RawMessage) list.ListResult,
+) {
+	raw, err := c.CallRead(ctx, queryMethod, filter)
 	if err != nil {
 		var diags diag.Diagnostics
 		diags.AddError("List query failed", fmt.Sprintf("%s: %v", queryMethod, err))

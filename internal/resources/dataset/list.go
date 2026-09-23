@@ -48,7 +48,7 @@ func (l *DatasetListResource) Configure(_ context.Context, req resource.Configur
 }
 
 func (l *DatasetListResource) List(ctx context.Context, req list.ListRequest, stream *list.ListResultsStream) {
-	listing.StreamCollection(ctx, l.client, "pool.dataset.query", req, stream, l.mapRow)
+	listing.StreamCollectionFiltered(ctx, l.client, "pool.dataset.query", [][]any{{"type", "=", "FILESYSTEM"}}, req, stream, l.mapRow)
 }
 
 func (l *DatasetListResource) mapRow(ctx context.Context, req list.ListRequest, raw json.RawMessage) list.ListResult {

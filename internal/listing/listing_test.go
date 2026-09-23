@@ -20,6 +20,19 @@ func (s stubClient) CallRead(_ context.Context, _ string, _ ...any) (json.RawMes
 	return s.raw, s.err
 }
 
+// recordingClient captures the params it was called with, so tests can
+// assert a filter was actually passed through to the query call.
+type recordingClient struct {
+	raw       json.RawMessage
+	err       error
+	gotParams []any
+}
+
+func (r *recordingClient) CallRead(_ context.Context, _ string, params ...any) (json.RawMessage, error) {
+	r.gotParams = params
+	return r.raw, r.err
+}
+
 func countResults(stream *list.ListResultsStream) int {
 	n := 0
 	if stream.Results == nil {
@@ -52,9 +65,31 @@ func TestStreamCollection_HonorsLimit(t *testing.T) {
 	c := stubClient{raw: json.RawMessage(`[{"id":1},{"id":2},{"id":3}]`)}
 	var stream list.ListResultsStream
 	StreamCollection(context.Background(), c, "x.query", list.ListRequest{Limit: 2}, &stream,
-		func(_ context.Context, _ list.ListRequest, _ json.RawMessage) list.ListResult { return list.ListResult{} })
+		func(_ context.Context, _ list.ListRequest, _ json.RawMessage) list.ListResult {
+			return list.ListResult{}
+		})
 	if got := countResults(&stream); got != 2 {
 		t.Errorf("results = %d, want 2 (limit)", got)
+	}
+}
+
+func TestStreamCollectionFiltered_PassesFilter(t *testing.T) {
+	c := &recordingClient{raw: json.RawMessage(`[{"id":1}]`)}
+	filter := [][]any{{"type", "=", "FILESYSTEM"}}
+	var stream list.ListResultsStream
+	StreamCollectionFiltered(context.Background(), c, "pool.dataset.query", filter, list.ListRequest{}, &stream,
+		func(_ context.Context, _ list.ListRequest, _ json.RawMessage) list.ListResult {
+			return list.ListResult{}
+		})
+	if len(c.gotParams) != 1 {
+		t.Fatalf("params = %v, want exactly one param (the filter)", c.gotParams)
+	}
+	got, ok := c.gotParams[0].([][]any)
+	if !ok {
+		t.Fatalf("param type = %T, want [][]any", c.gotParams[0])
+	}
+	if len(got) != 1 || len(got[0]) != 3 || got[0][0] != "type" || got[0][1] != "=" || got[0][2] != "FILESYSTEM" {
+		t.Errorf("filter = %v, want %v", got, filter)
 	}
 }
 
@@ -62,7 +97,9 @@ func TestStreamSingleton_EmitsOne(t *testing.T) {
 	c := stubClient{raw: json.RawMessage(`{"id":1}`)}
 	var stream list.ListResultsStream
 	StreamSingleton(context.Background(), c, "x.config", list.ListRequest{}, &stream,
-		func(_ context.Context, _ list.ListRequest, _ json.RawMessage) list.ListResult { return list.ListResult{} })
+		func(_ context.Context, _ list.ListRequest, _ json.RawMessage) list.ListResult {
+			return list.ListResult{}
+		})
 	if got := countResults(&stream); got != 1 {
 		t.Errorf("results = %d, want 1", got)
 	}
