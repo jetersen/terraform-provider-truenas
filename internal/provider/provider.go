@@ -245,6 +245,7 @@ func (p *TrueNASProvider) Configure(ctx context.Context, req provider.ConfigureR
 
 	resp.DataSourceData = c
 	resp.ResourceData = c
+	resp.ListResourceData = c
 }
 
 func (p *TrueNASProvider) Resources(_ context.Context) []func() resource.Resource {
@@ -431,7 +432,11 @@ func (p *TrueNASProvider) DataSources(_ context.Context) []func() datasource.Dat
 
 // ListResources returns the provider's list resources (terraform query; Terraform 1.14+).
 func (p *TrueNASProvider) ListResources(_ context.Context) []func() list.ListResource {
-	return []func() list.ListResource{}
+	return []func() list.ListResource{
+		user.NewListResource,
+		dataset.NewListResource,
+		ssh_config.NewListResource,
+	}
 }
 
 // envOrVal returns the string value of a types.String, falling back to an env var.

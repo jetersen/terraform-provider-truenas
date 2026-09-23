@@ -11,10 +11,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 var _ resource.Resource = &SSHConfigResource{}
 var _ resource.ResourceWithImportState = &SSHConfigResource{}
+var _ resource.ResourceWithIdentity = &SSHConfigResource{}
 
 // SSHConfigResource implements the truenas_ssh_config singleton resource.
 type SSHConfigResource struct{ client *client.Client }
@@ -28,6 +30,10 @@ func (r *SSHConfigResource) Metadata(_ context.Context, req resource.MetadataReq
 
 func (r *SSHConfigResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+func (r *SSHConfigResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.StringIDIdentitySchema()
 }
 
 func (r *SSHConfigResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -86,6 +92,7 @@ func (r *SSHConfigResource) Create(ctx context.Context, req resource.CreateReque
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, sshConfigResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -108,6 +115,7 @@ func (r *SSHConfigResource) Read(ctx context.Context, req resource.ReadRequest, 
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, sshConfigResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -156,4 +164,5 @@ func (r *SSHConfigResource) ImportState(ctx context.Context, req resource.Import
 	// other fields are left unset so the subsequent Read call populates them
 	// directly from ssh.config.
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), sshConfigResourceID)...)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, sshConfigResourceID)...)
 }
