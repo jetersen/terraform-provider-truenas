@@ -168,9 +168,15 @@ func (r *NFSShareResource) Delete(ctx context.Context, req resource.DeleteReques
 }
 
 func (r *NFSShareResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	id, err := strconv.ParseInt(req.ID, 10, 64)
+	idStr, idDiags := listing.ImportString(ctx, req)
+	resp.Diagnostics.Append(idDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		resp.Diagnostics.AddError("Import ID must be integer", req.ID)
+		resp.Diagnostics.AddError("Import ID must be integer", idStr)
 		return
 	}
 

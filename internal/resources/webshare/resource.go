@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -205,9 +204,9 @@ func (r *WebshareResource) ImportState(ctx context.Context, req resource.ImportS
 		return
 	}
 
-	id, err := strconv.ParseInt(req.ID, 10, 64)
-	if err != nil {
-		resp.Diagnostics.AddError("Import ID must be an integer", req.ID)
+	id, idDiags := listing.ImportInt64(ctx, req)
+	resp.Diagnostics.Append(idDiags...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 

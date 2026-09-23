@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
@@ -168,9 +167,9 @@ func (r *PrivilegeResource) Delete(ctx context.Context, req resource.DeleteReque
 }
 
 func (r *PrivilegeResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	id, err := strconv.ParseInt(req.ID, 10, 64)
-	if err != nil {
-		resp.Diagnostics.AddError("Import ID must be an integer", req.ID)
+	id, idDiags := listing.ImportInt64(ctx, req)
+	resp.Diagnostics.Append(idDiags...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 

@@ -291,14 +291,26 @@ func (r *PoolResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 }
 
 func (r *PoolResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	// Import by pool id (integer) or name — the id form is what
-	// ImportStateVerify uses (the resource id is the numeric pool id), while a
-	// name is friendlier for a manual `terraform import`.
+	// Import by pool id (integer), pool name, or resource identity — the id
+	// form is what ImportStateVerify uses (the resource id is the numeric
+	// pool id), while a name is friendlier for a manual `terraform import`.
 	var filter [][]any
-	if id, err := strconv.ParseInt(req.ID, 10, 64); err == nil {
-		filter = [][]any{{"id", "=", id}}
+	var lookup string
+	if req.ID != "" {
+		lookup = req.ID
+		if id, err := strconv.ParseInt(req.ID, 10, 64); err == nil {
+			filter = [][]any{{"id", "=", id}}
+		} else {
+			filter = [][]any{{"name", "=", req.ID}}
+		}
 	} else {
-		filter = [][]any{{"name", "=", req.ID}}
+		id, idDiags := listing.ImportInt64(ctx, req)
+		resp.Diagnostics.Append(idDiags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		lookup = strconv.FormatInt(id, 10)
+		filter = [][]any{{"id", "=", id}}
 	}
 	raw, err := r.client.CallRead(ctx, "pool.query", filter)
 	if err != nil {
@@ -314,7 +326,7 @@ func (r *PoolResource) ImportState(ctx context.Context, req resource.ImportState
 
 	if len(pools) == 0 {
 		resp.Diagnostics.AddError("Pool not found",
-			fmt.Sprintf("no pool with id or name %q found on TrueNAS", req.ID))
+			fmt.Sprintf("no pool with id or name %q found on TrueNAS", lookup))
 		return
 	}
 
