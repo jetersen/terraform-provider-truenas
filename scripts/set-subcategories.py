@@ -122,6 +122,16 @@ SUBCATEGORY = {
     "enclosure_label": "HA & Enterprise",
     "truecommand_config": "HA & Enterprise",
     "tn_connect_config": "HA & Enterprise",
+    # Operations (Terraform Actions)
+    "scrub_run": "Operations",
+    "replication_run": "Operations",
+    "cloudsync_run": "Operations",
+    "snapshot_task_run": "Operations",
+    "service_control": "Operations",
+    "app_start": "Operations",
+    "app_stop": "Operations",
+    "app_redeploy": "Operations",
+    "ui_restart": "Operations",
 }
 
 FRONTMATTER_RE = re.compile(r'^(subcategory:)\s*".*?"\s*$', re.MULTILINE)
@@ -131,7 +141,7 @@ def main() -> int:
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     unmapped = []
     changed = 0
-    for sub in ("resources", "data-sources", "list-resources"):
+    for sub in ("resources", "data-sources", "list-resources", "actions"):
         d = os.path.join(root, "docs", sub)
         if not os.path.isdir(d):
             continue
