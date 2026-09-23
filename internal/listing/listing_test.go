@@ -6,6 +6,7 @@ package listing
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-framework/list"
@@ -102,6 +103,65 @@ func TestStreamSingleton_EmitsOne(t *testing.T) {
 		})
 	if got := countResults(&stream); got != 1 {
 		t.Errorf("results = %d, want 1", got)
+	}
+}
+
+// singleResult pulls the single ListResult out of a stream, failing the
+// test if the stream didn't yield exactly one.
+func singleResult(t *testing.T, stream *list.ListResultsStream) list.ListResult {
+	t.Helper()
+	if stream.Results == nil {
+		t.Fatal("stream.Results is nil, want exactly one result")
+	}
+	var results []list.ListResult
+	for r := range stream.Results {
+		results = append(results, r)
+	}
+	if len(results) != 1 {
+		t.Fatalf("results = %d, want exactly 1", len(results))
+	}
+	return results[0]
+}
+
+func TestStreamCollection_QueryError(t *testing.T) {
+	c := stubClient{err: fmt.Errorf("connection refused")}
+	var stream list.ListResultsStream
+	StreamCollection(context.Background(), c, "x.query", list.ListRequest{}, &stream,
+		func(_ context.Context, _ list.ListRequest, _ json.RawMessage) list.ListResult {
+			t.Fatal("mapRow should not be called on query error")
+			return list.ListResult{}
+		})
+	res := singleResult(t, &stream)
+	if !res.Diagnostics.HasError() {
+		t.Error("Diagnostics.HasError() = false, want true")
+	}
+}
+
+func TestStreamCollection_ParseError(t *testing.T) {
+	c := stubClient{raw: json.RawMessage(`{`)}
+	var stream list.ListResultsStream
+	StreamCollection(context.Background(), c, "x.query", list.ListRequest{}, &stream,
+		func(_ context.Context, _ list.ListRequest, _ json.RawMessage) list.ListResult {
+			t.Fatal("mapRow should not be called on parse error")
+			return list.ListResult{}
+		})
+	res := singleResult(t, &stream)
+	if !res.Diagnostics.HasError() {
+		t.Error("Diagnostics.HasError() = false, want true")
+	}
+}
+
+func TestStreamSingleton_ConfigError(t *testing.T) {
+	c := stubClient{err: fmt.Errorf("connection refused")}
+	var stream list.ListResultsStream
+	StreamSingleton(context.Background(), c, "x.config", list.ListRequest{}, &stream,
+		func(_ context.Context, _ list.ListRequest, _ json.RawMessage) list.ListResult {
+			t.Fatal("mapOne should not be called on config error")
+			return list.ListResult{}
+		})
+	res := singleResult(t, &stream)
+	if !res.Diagnostics.HasError() {
+		t.Error("Diagnostics.HasError() = false, want true")
 	}
 }
 

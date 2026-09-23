@@ -10,7 +10,9 @@ import (
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/querycheck"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
+	"github.com/hashicorp/terraform-plugin-testing/tfversion"
 	"github.com/truenas/terraform-provider-truenas/internal/acctest"
 )
 
@@ -54,6 +56,78 @@ func TestAccUser_basic(t *testing.T) {
 				ImportState:             true,
 				ImportStateVerify:       true,
 				ImportStateVerifyIgnore: []string{"password", "group_create"},
+			},
+		},
+	})
+}
+
+// TestAccUser_identityImport creates a local user and re-imports it using
+// an import block keyed by resource identity (Terraform 1.12+), rather than
+// the legacy `terraform import ID` command. ImportStateVerify checks that
+// the round-tripped state matches, modulo the write-only fields that are
+// never read back (see TestAccUser_basic).
+func TestAccUser_identityImport(t *testing.T) {
+	username := acctest.RandName("tf-acc-user-ident")
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { acctest.PreCheck(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		TerraformVersionChecks: []tfversion.TerraformVersionCheck{
+			tfversion.SkipBelow(tfversion.Version1_12_0), // ImportBlockWithResourceIdentity requires Terraform 1.12.0+
+		},
+		CheckDestroy: testAccCheckUserDestroyed(username),
+		Steps: []resource.TestStep{
+			{
+				Config: acctest.ProviderConfig() + testAccUserConfig(username, "Identity Test User", "/usr/bin/bash"),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("truenas_user.test", "username", username),
+					resource.TestCheckResourceAttrSet("truenas_user.test", "id"),
+				),
+			},
+			{
+				ResourceName:            "truenas_user.test",
+				ImportState:             true,
+				ImportStateKind:         resource.ImportBlockWithResourceIdentity,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"password", "group_create"},
+			},
+		},
+	})
+}
+
+// TestAccUser_list creates a local user, then runs a `terraform query`
+// (list resource) step against truenas_user and asserts the query finds at
+// least one result. This exercises internal/listing's StreamCollection path
+// end to end against a live box, rather than the stubbed unit tests in
+// internal/listing/listing_test.go.
+func TestAccUser_list(t *testing.T) {
+	username := acctest.RandName("tf-acc-user-list")
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { acctest.PreCheck(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		TerraformVersionChecks: []tfversion.TerraformVersionCheck{
+			tfversion.SkipBelow(tfversion.Version1_14_0), // list/query support requires Terraform 1.14.0+
+		},
+		CheckDestroy: testAccCheckUserDestroyed(username),
+		Steps: []resource.TestStep{
+			{
+				// Ensure at least one truenas_user exists (the box's own
+				// built-in users would satisfy this too, but don't rely on
+				// box-specific state).
+				Config: acctest.ProviderConfig() + testAccUserConfig(username, "List Test User", "/usr/bin/bash"),
+			},
+			{
+				Query: true,
+				Config: acctest.ProviderConfig() + `
+list "truenas_user" "test" {
+  provider = truenas
+  config {}
+}
+`,
+				QueryResultChecks: []querycheck.QueryResultCheck{
+					querycheck.ExpectLengthAtLeast("truenas_user.test", 1),
+				},
 			},
 		},
 	})
