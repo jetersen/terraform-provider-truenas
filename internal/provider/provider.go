@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/list"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -106,6 +107,7 @@ import (
 )
 
 var _ provider.Provider = &TrueNASProvider{}
+var _ provider.ProviderWithListResources = &TrueNASProvider{}
 
 type TrueNASProvider struct {
 	version string
@@ -425,6 +427,11 @@ func (p *TrueNASProvider) DataSources(_ context.Context) []func() datasource.Dat
 		webshare_config.NewDataSource,
 		zvol.NewDataSource,
 	}
+}
+
+// ListResources returns the provider's list resources (terraform query; Terraform 1.14+).
+func (p *TrueNASProvider) ListResources(_ context.Context) []func() list.ListResource {
+	return []func() list.ListResource{}
 }
 
 // envOrVal returns the string value of a types.String, falling back to an env var.
