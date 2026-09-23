@@ -436,6 +436,18 @@ func (p *TrueNASProvider) ListResources(_ context.Context) []func() list.ListRes
 		user.NewListResource,
 		dataset.NewListResource,
 		ssh_config.NewListResource,
+		group.NewListResource,
+		pool.NewListResource,
+		privilege.NewListResource,
+		certificate.NewListResource,
+		cronjob.NewListResource,
+		rsync_task.NewListResource,
+		replication.NewListResource,
+		cloudsync.NewListResource,
+		cloudsync_credentials.NewListResource,
+		periodic_snapshot.NewListResource,
+		scrub_task.NewListResource,
+		tunable.NewListResource,
 	}
 }
 

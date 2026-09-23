@@ -11,10 +11,12 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 var _ resource.Resource = &RsyncTaskResource{}
 var _ resource.ResourceWithImportState = &RsyncTaskResource{}
+var _ resource.ResourceWithIdentity = &RsyncTaskResource{}
 
 // RsyncTaskResource implements the truenas_rsync_task resource.
 type RsyncTaskResource struct{ client *client.Client }
@@ -28,6 +30,10 @@ func (r *RsyncTaskResource) Metadata(_ context.Context, req resource.MetadataReq
 
 func (r *RsyncTaskResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+func (r *RsyncTaskResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.IntIDIdentitySchema()
 }
 
 func (r *RsyncTaskResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -76,6 +82,7 @@ func (r *RsyncTaskResource) Create(ctx context.Context, req resource.CreateReque
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, plan.ID.ValueInt64())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -108,6 +115,7 @@ func (r *RsyncTaskResource) Read(ctx context.Context, req resource.ReadRequest, 
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, state.ID.ValueInt64())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -190,5 +198,6 @@ func (r *RsyncTaskResource) ImportState(ctx context.Context, req resource.Import
 	// import; leave them null (Optional-only, no Computed, so the framework
 	// does not require a value). ImportStateVerify in acceptance tests must
 	// ignore both.
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, id)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
