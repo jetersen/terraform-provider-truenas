@@ -11,10 +11,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 var _ resource.Resource = &AlertPolicyResource{}
 var _ resource.ResourceWithImportState = &AlertPolicyResource{}
+var _ resource.ResourceWithIdentity = &AlertPolicyResource{}
 
 // AlertPolicyResource implements the truenas_alert_policy singleton resource.
 type AlertPolicyResource struct{ client *client.Client }
@@ -28,6 +30,10 @@ func (r *AlertPolicyResource) Metadata(_ context.Context, req resource.MetadataR
 
 func (r *AlertPolicyResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+func (r *AlertPolicyResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.StringIDIdentitySchema()
 }
 
 func (r *AlertPolicyResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -88,6 +94,7 @@ func (r *AlertPolicyResource) Create(ctx context.Context, req resource.CreateReq
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, alertPolicyResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -110,6 +117,7 @@ func (r *AlertPolicyResource) Read(ctx context.Context, req resource.ReadRequest
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, alertPolicyResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -158,4 +166,5 @@ func (r *AlertPolicyResource) ImportState(ctx context.Context, req resource.Impo
 	// Classes is left unset so the subsequent Read call populates it
 	// directly from alertclasses.config.
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), alertPolicyResourceID)...)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, alertPolicyResourceID)...)
 }

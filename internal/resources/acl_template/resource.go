@@ -7,15 +7,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 var _ resource.Resource = &AclTemplateResource{}
 var _ resource.ResourceWithImportState = &AclTemplateResource{}
+var _ resource.ResourceWithIdentity = &AclTemplateResource{}
 
 // AclTemplateResource implements the truenas_acl_template resource.
 type AclTemplateResource struct{ client *client.Client }
@@ -29,6 +30,10 @@ func (r *AclTemplateResource) Metadata(_ context.Context, req resource.MetadataR
 
 func (r *AclTemplateResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+func (r *AclTemplateResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.IntIDIdentitySchema()
 }
 
 func (r *AclTemplateResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -82,6 +87,7 @@ func (r *AclTemplateResource) Create(ctx context.Context, req resource.CreateReq
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, plan.ID.ValueInt64())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -127,6 +133,7 @@ func (r *AclTemplateResource) Read(ctx context.Context, req resource.ReadRequest
 		state.ACL = types.StringValue(aclJSON)
 	}
 
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, state.ID.ValueInt64())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -183,9 +190,9 @@ func (r *AclTemplateResource) Delete(ctx context.Context, req resource.DeleteReq
 }
 
 func (r *AclTemplateResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	id, err := strconv.ParseInt(req.ID, 10, 64)
-	if err != nil {
-		resp.Diagnostics.AddError("Import ID must be an integer", req.ID)
+	id, idDiags := listing.ImportInt64(ctx, req)
+	resp.Diagnostics.Append(idDiags...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
@@ -214,5 +221,6 @@ func (r *AclTemplateResource) ImportState(ctx context.Context, req resource.Impo
 	}
 	state.ACL = types.StringValue(aclJSON)
 
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, id)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }

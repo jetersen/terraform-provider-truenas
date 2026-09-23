@@ -11,10 +11,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 var _ resource.Resource = &ReplicationConfigResource{}
 var _ resource.ResourceWithImportState = &ReplicationConfigResource{}
+var _ resource.ResourceWithIdentity = &ReplicationConfigResource{}
 
 // ReplicationConfigResource implements the truenas_replication_config
 // singleton resource.
@@ -29,6 +31,10 @@ func (r *ReplicationConfigResource) Metadata(_ context.Context, req resource.Met
 
 func (r *ReplicationConfigResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+func (r *ReplicationConfigResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.StringIDIdentitySchema()
 }
 
 func (r *ReplicationConfigResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -87,6 +93,7 @@ func (r *ReplicationConfigResource) Create(ctx context.Context, req resource.Cre
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, replicationConfigResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -109,6 +116,7 @@ func (r *ReplicationConfigResource) Read(ctx context.Context, req resource.ReadR
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, replicationConfigResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -157,4 +165,5 @@ func (r *ReplicationConfigResource) ImportState(ctx context.Context, req resourc
 	// other fields are left unset so the subsequent Read call populates them
 	// directly from replication.config.config.
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), replicationConfigResourceID)...)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, replicationConfigResourceID)...)
 }

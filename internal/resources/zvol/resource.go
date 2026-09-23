@@ -11,10 +11,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 var _ resource.Resource = &ZvolResource{}
 var _ resource.ResourceWithImportState = &ZvolResource{}
+var _ resource.ResourceWithIdentity = &ZvolResource{}
 
 type ZvolResource struct {
 	client *client.Client
@@ -28,6 +30,10 @@ func (r *ZvolResource) Metadata(_ context.Context, req resource.MetadataRequest,
 
 func (r *ZvolResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+func (r *ZvolResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.StringIDIdentitySchema()
 }
 
 func (r *ZvolResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -70,6 +76,7 @@ func (r *ZvolResource) Create(ctx context.Context, req resource.CreateRequest, r
 	}
 
 	responseToModel(&apiResp, &plan)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, plan.ID.ValueString())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -97,6 +104,7 @@ func (r *ZvolResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	}
 
 	responseToModel(&apiResp, &state)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, state.ID.ValueString())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -152,11 +160,17 @@ func (r *ZvolResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 }
 
 func (r *ZvolResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	var state ZvolModel
-	state.Name = types.StringValue(req.ID)
-	state.ID = types.StringValue(req.ID)
+	id, idDiags := listing.ImportString(ctx, req)
+	resp.Diagnostics.Append(idDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
-	raw, err := r.client.CallRead(ctx, "pool.dataset.get_instance", req.ID)
+	var state ZvolModel
+	state.Name = types.StringValue(id)
+	state.ID = types.StringValue(id)
+
+	raw, err := r.client.CallRead(ctx, "pool.dataset.get_instance", id)
 	if err != nil {
 		resp.Diagnostics.AddError("Import zvol failed", err.Error())
 		return
@@ -169,5 +183,6 @@ func (r *ZvolResource) ImportState(ctx context.Context, req resource.ImportState
 	}
 
 	responseToModel(&apiResp, &state)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, state.ID.ValueString())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }

@@ -7,16 +7,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 var _ resource.Resource = &ContainerResource{}
 var _ resource.ResourceWithImportState = &ContainerResource{}
+var _ resource.ResourceWithIdentity = &ContainerResource{}
 
 // ContainerResource implements the truenas_container resource.
 type ContainerResource struct{ client *client.Client }
@@ -30,6 +31,10 @@ func (r *ContainerResource) Metadata(_ context.Context, req resource.MetadataReq
 
 func (r *ContainerResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+func (r *ContainerResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.IntIDIdentitySchema()
 }
 
 func (r *ContainerResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -153,6 +158,7 @@ func (r *ContainerResource) Create(ctx context.Context, req resource.CreateReque
 	plan.Idmap = idmapResponseValue(plan.Idmap, apiResp.Idmap)
 
 	resp.Diagnostics.Append(responseToModel(ctx, apiResp, &plan)...)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, plan.ID.ValueInt64())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -184,6 +190,7 @@ func (r *ContainerResource) Read(ctx context.Context, req resource.ReadRequest, 
 	// response here would risk a formatting mismatch against the value
 	// already recorded in state (see idmapResponseValue's doc comment).
 	resp.Diagnostics.Append(responseToModel(ctx, apiResp, &state)...)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, state.ID.ValueInt64())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -284,9 +291,9 @@ func (r *ContainerResource) ImportState(ctx context.Context, req resource.Import
 		return
 	}
 
-	id, err := strconv.ParseInt(req.ID, 10, 64)
-	if err != nil {
-		resp.Diagnostics.AddError("Import ID must be an integer", req.ID)
+	id, idDiags := listing.ImportInt64(ctx, req)
+	resp.Diagnostics.Append(idDiags...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
@@ -299,5 +306,6 @@ func (r *ContainerResource) ImportState(ctx context.Context, req resource.Import
 	state := ContainerModel{Image: types.ObjectNull(imageAttrTypes)}
 	state.Idmap = idmapFromAPI(apiResp.Idmap)
 	resp.Diagnostics.Append(responseToModel(ctx, apiResp, &state)...)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, id)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }

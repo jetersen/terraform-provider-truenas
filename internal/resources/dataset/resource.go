@@ -13,10 +13,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 var _ resource.Resource = &DatasetResource{}
 var _ resource.ResourceWithImportState = &DatasetResource{}
+var _ resource.ResourceWithIdentity = &DatasetResource{}
 
 type DatasetResource struct {
 	client *client.Client
@@ -30,6 +32,10 @@ func (r *DatasetResource) Metadata(_ context.Context, req resource.MetadataReque
 
 func (r *DatasetResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+func (r *DatasetResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.StringIDIdentitySchema()
 }
 
 func (r *DatasetResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -75,6 +81,7 @@ func (r *DatasetResource) Create(ctx context.Context, req resource.CreateRequest
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, plan.ID.ValueString())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -105,6 +112,7 @@ func (r *DatasetResource) Read(ctx context.Context, req resource.ReadRequest, re
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, state.ID.ValueString())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -159,11 +167,17 @@ func (r *DatasetResource) Delete(ctx context.Context, req resource.DeleteRequest
 
 func (r *DatasetResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	// Import by dataset name (e.g. "terraform import truenas_dataset.example tank/mydata")
-	var state DatasetModel
-	state.Name = types.StringValue(req.ID)
-	state.ID = types.StringValue(req.ID)
+	id, idDiags := listing.ImportString(ctx, req)
+	resp.Diagnostics.Append(idDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
-	raw, err := r.client.CallRead(ctx, "pool.dataset.get_instance", req.ID)
+	var state DatasetModel
+	state.Name = types.StringValue(id)
+	state.ID = types.StringValue(id)
+
+	raw, err := r.client.CallRead(ctx, "pool.dataset.get_instance", id)
 	if err != nil {
 		resp.Diagnostics.AddError("Import dataset failed", err.Error())
 		return
@@ -179,6 +193,7 @@ func (r *DatasetResource) ImportState(ctx context.Context, req resource.ImportSt
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, state.ID.ValueString())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 

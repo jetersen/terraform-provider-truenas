@@ -12,10 +12,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 var _ resource.Resource = &WebshareConfigResource{}
 var _ resource.ResourceWithImportState = &WebshareConfigResource{}
+var _ resource.ResourceWithIdentity = &WebshareConfigResource{}
 
 // WebshareConfigResource implements the truenas_webshare_config singleton
 // resource.
@@ -30,6 +32,10 @@ func (r *WebshareConfigResource) Metadata(_ context.Context, req resource.Metada
 
 func (r *WebshareConfigResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+func (r *WebshareConfigResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.StringIDIdentitySchema()
 }
 
 func (r *WebshareConfigResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -125,6 +131,7 @@ func (r *WebshareConfigResource) Create(ctx context.Context, req resource.Create
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, webshareConfigResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -153,6 +160,7 @@ func (r *WebshareConfigResource) Read(ctx context.Context, req resource.ReadRequ
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, webshareConfigResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -227,4 +235,5 @@ func (r *WebshareConfigResource) ImportState(ctx context.Context, req resource.I
 	// version-gates itself, see Read above) populates them directly from
 	// webshare.config.
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), webshareConfigResourceID)...)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, webshareConfigResourceID)...)
 }

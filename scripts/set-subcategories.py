@@ -2,14 +2,14 @@
 """Populate the `subcategory:` frontmatter of generated provider docs.
 
 tfplugindocs leaves subcategory empty. The Terraform Registry uses it to
-group a provider's resource/data-source pages under headings. This script
-runs after tfplugindocs (see the `generate` target in GNUmakefile) and sets
-each page's subcategory from the domain map below, keyed by the page's base
-filename.
+group a provider's resource/data-source/list-resource pages under headings.
+This script runs after tfplugindocs (see the `generate` target in
+GNUmakefile) and sets each page's subcategory from the domain map below,
+keyed by the page's base filename.
 
-Every generated resource/data-source page must map to a subcategory; the
-script exits non-zero if it finds a page whose basename is not in the map,
-so a new resource cannot silently ship without a group.
+Every generated resource/data-source/list-resource page must map to a
+subcategory; the script exits non-zero if it finds a page whose basename is
+not in the map, so a new resource cannot silently ship without a group.
 """
 import os
 import re
@@ -131,7 +131,7 @@ def main() -> int:
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     unmapped = []
     changed = 0
-    for sub in ("resources", "data-sources"):
+    for sub in ("resources", "data-sources", "list-resources"):
         d = os.path.join(root, "docs", sub)
         if not os.path.isdir(d):
             continue

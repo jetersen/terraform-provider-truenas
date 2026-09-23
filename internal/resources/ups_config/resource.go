@@ -11,10 +11,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 var _ resource.Resource = &UPSConfigResource{}
 var _ resource.ResourceWithImportState = &UPSConfigResource{}
+var _ resource.ResourceWithIdentity = &UPSConfigResource{}
 
 // UPSConfigResource implements the truenas_ups_config singleton resource.
 type UPSConfigResource struct{ client *client.Client }
@@ -28,6 +30,10 @@ func (r *UPSConfigResource) Metadata(_ context.Context, req resource.MetadataReq
 
 func (r *UPSConfigResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+func (r *UPSConfigResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.StringIDIdentitySchema()
 }
 
 func (r *UPSConfigResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -102,6 +108,7 @@ func (r *UPSConfigResource) Create(ctx context.Context, req resource.CreateReque
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, upsConfigResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -126,6 +133,7 @@ func (r *UPSConfigResource) Read(ctx context.Context, req resource.ReadRequest, 
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, upsConfigResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -186,4 +194,5 @@ func (r *UPSConfigResource) ImportState(ctx context.Context, req resource.Import
 	// other fields are left unset so the subsequent Read call populates them
 	// directly from ups.config.
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), upsConfigResourceID)...)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, upsConfigResourceID)...)
 }

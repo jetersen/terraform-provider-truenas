@@ -11,6 +11,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 // settlePollInterval and settlePollAttempts bound lookupChannelSettled's
@@ -32,6 +33,7 @@ const (
 
 var _ resource.Resource = &IPMILanResource{}
 var _ resource.ResourceWithImportState = &IPMILanResource{}
+var _ resource.ResourceWithIdentity = &IPMILanResource{}
 
 // IPMILanResource implements the truenas_ipmi_lan resource: the LAN
 // configuration of one pre-existing physical BMC/IPMI channel. See
@@ -47,6 +49,10 @@ func (r *IPMILanResource) Metadata(_ context.Context, req resource.MetadataReque
 
 func (r *IPMILanResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+func (r *IPMILanResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.IntIDIdentitySchema()
 }
 
 func (r *IPMILanResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -238,6 +244,7 @@ func (r *IPMILanResource) Create(ctx context.Context, req resource.CreateRequest
 	}
 
 	responseToModel(api, &plan)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, plan.ID.ValueInt64())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -259,6 +266,7 @@ func (r *IPMILanResource) Read(ctx context.Context, req resource.ReadRequest, re
 	}
 
 	responseToModel(api, &state)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, state.ID.ValueInt64())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -339,6 +347,7 @@ func (r *IPMILanResource) Update(ctx context.Context, req resource.UpdateRequest
 	}
 
 	responseToModel(api, &plan)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, plan.ID.ValueInt64())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -356,9 +365,9 @@ func (r *IPMILanResource) Delete(_ context.Context, _ resource.DeleteRequest, re
 }
 
 func (r *IPMILanResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	channel, err := parseChannel(req.ID)
-	if err != nil {
-		resp.Diagnostics.AddError("Import ID must be an integer channel number", err.Error())
+	channel, idDiags := listing.ImportInt64(ctx, req)
+	resp.Diagnostics.Append(idDiags...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
@@ -370,5 +379,6 @@ func (r *IPMILanResource) ImportState(ctx context.Context, req resource.ImportSt
 
 	var state IPMILanModel
 	responseToModel(api, &state)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, state.ID.ValueInt64())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }

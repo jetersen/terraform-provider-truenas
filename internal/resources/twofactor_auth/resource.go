@@ -11,10 +11,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 var _ resource.Resource = &TwoFactorAuthResource{}
 var _ resource.ResourceWithImportState = &TwoFactorAuthResource{}
+var _ resource.ResourceWithIdentity = &TwoFactorAuthResource{}
 
 // TwoFactorAuthResource implements the truenas_twofactor_auth singleton
 // resource.
@@ -29,6 +31,10 @@ func (r *TwoFactorAuthResource) Metadata(_ context.Context, req resource.Metadat
 
 func (r *TwoFactorAuthResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+func (r *TwoFactorAuthResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.StringIDIdentitySchema()
 }
 
 func (r *TwoFactorAuthResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -96,6 +102,7 @@ func (r *TwoFactorAuthResource) Create(ctx context.Context, req resource.CreateR
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, twoFactorAuthResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -118,6 +125,7 @@ func (r *TwoFactorAuthResource) Read(ctx context.Context, req resource.ReadReque
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, twoFactorAuthResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -184,4 +192,5 @@ func (r *TwoFactorAuthResource) ImportState(ctx context.Context, req resource.Im
 	// other fields are left unset so the subsequent Read call populates them
 	// directly from auth.twofactor.config.
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), twoFactorAuthResourceID)...)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, twoFactorAuthResourceID)...)
 }

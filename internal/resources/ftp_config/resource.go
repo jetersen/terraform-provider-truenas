@@ -11,10 +11,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 var _ resource.Resource = &FTPConfigResource{}
 var _ resource.ResourceWithImportState = &FTPConfigResource{}
+var _ resource.ResourceWithIdentity = &FTPConfigResource{}
 
 // FTPConfigResource implements the truenas_ftp_config singleton resource.
 type FTPConfigResource struct{ client *client.Client }
@@ -28,6 +30,10 @@ func (r *FTPConfigResource) Metadata(_ context.Context, req resource.MetadataReq
 
 func (r *FTPConfigResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+func (r *FTPConfigResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.StringIDIdentitySchema()
 }
 
 func (r *FTPConfigResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -82,6 +88,7 @@ func (r *FTPConfigResource) Create(ctx context.Context, req resource.CreateReque
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, ftpConfigResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -104,6 +111,7 @@ func (r *FTPConfigResource) Read(ctx context.Context, req resource.ReadRequest, 
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, ftpConfigResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -147,4 +155,5 @@ func (r *FTPConfigResource) ImportState(ctx context.Context, req resource.Import
 	// other fields are left unset so the subsequent Read call populates them
 	// directly from ftp.config.
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), ftpConfigResourceID)...)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, ftpConfigResourceID)...)
 }

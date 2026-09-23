@@ -11,10 +11,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 var _ resource.Resource = &SystemGeneralResource{}
 var _ resource.ResourceWithImportState = &SystemGeneralResource{}
+var _ resource.ResourceWithIdentity = &SystemGeneralResource{}
 
 // SystemGeneralResource implements the truenas_system_general singleton
 // resource.
@@ -29,6 +31,10 @@ func (r *SystemGeneralResource) Metadata(_ context.Context, req resource.Metadat
 
 func (r *SystemGeneralResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+func (r *SystemGeneralResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.StringIDIdentitySchema()
 }
 
 func (r *SystemGeneralResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -87,6 +93,7 @@ func (r *SystemGeneralResource) Create(ctx context.Context, req resource.CreateR
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, systemGeneralResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -109,6 +116,7 @@ func (r *SystemGeneralResource) Read(ctx context.Context, req resource.ReadReque
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, systemGeneralResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -157,4 +165,5 @@ func (r *SystemGeneralResource) ImportState(ctx context.Context, req resource.Im
 	// other fields are left unset so the subsequent Read call populates them
 	// directly from system.general.config.
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), systemGeneralResourceID)...)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, systemGeneralResourceID)...)
 }

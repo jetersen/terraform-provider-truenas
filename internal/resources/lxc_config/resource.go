@@ -12,10 +12,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 var _ resource.Resource = &LXCConfigResource{}
 var _ resource.ResourceWithImportState = &LXCConfigResource{}
+var _ resource.ResourceWithIdentity = &LXCConfigResource{}
 
 // LXCConfigResource implements the truenas_lxc_config singleton resource.
 type LXCConfigResource struct{ client *client.Client }
@@ -29,6 +31,10 @@ func (r *LXCConfigResource) Metadata(_ context.Context, req resource.MetadataReq
 
 func (r *LXCConfigResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+func (r *LXCConfigResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.StringIDIdentitySchema()
 }
 
 func (r *LXCConfigResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -125,6 +131,7 @@ func (r *LXCConfigResource) Create(ctx context.Context, req resource.CreateReque
 	}
 
 	responseToModel(api, &plan)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, lxcConfigResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -150,6 +157,7 @@ func (r *LXCConfigResource) Read(ctx context.Context, req resource.ReadRequest, 
 	}
 
 	responseToModel(api, &state)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, lxcConfigResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -182,6 +190,7 @@ func (r *LXCConfigResource) Update(ctx context.Context, req resource.UpdateReque
 	}
 
 	responseToModel(api, &plan)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, lxcConfigResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -201,4 +210,5 @@ func (r *LXCConfigResource) ImportState(ctx context.Context, req resource.Import
 	// version-gates itself, see Read above) populates them directly from
 	// lxc.config.
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), lxcConfigResourceID)...)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, lxcConfigResourceID)...)
 }

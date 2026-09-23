@@ -11,10 +11,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 var _ resource.Resource = &TnConnectConfigResource{}
 var _ resource.ResourceWithImportState = &TnConnectConfigResource{}
+var _ resource.ResourceWithIdentity = &TnConnectConfigResource{}
 
 // TnConnectConfigResource implements the truenas_tn_connect_config singleton
 // resource. No version gate is needed: tn_connect.config/tn_connect.update
@@ -32,6 +34,10 @@ func (r *TnConnectConfigResource) Metadata(_ context.Context, req resource.Metad
 
 func (r *TnConnectConfigResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+func (r *TnConnectConfigResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.StringIDIdentitySchema()
 }
 
 func (r *TnConnectConfigResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -110,6 +116,7 @@ func (r *TnConnectConfigResource) Create(ctx context.Context, req resource.Creat
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, tnConnectConfigResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -132,6 +139,7 @@ func (r *TnConnectConfigResource) Read(ctx context.Context, req resource.ReadReq
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, tnConnectConfigResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -198,4 +206,5 @@ func (r *TnConnectConfigResource) ImportState(ctx context.Context, req resource.
 	// all other fields are left unset so the subsequent Read call populates
 	// them directly from tn_connect.config.
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), tnConnectConfigResourceID)...)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, tnConnectConfigResourceID)...)
 }

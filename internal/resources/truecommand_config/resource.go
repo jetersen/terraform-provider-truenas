@@ -11,10 +11,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 var _ resource.Resource = &TrueCommandConfigResource{}
 var _ resource.ResourceWithImportState = &TrueCommandConfigResource{}
+var _ resource.ResourceWithIdentity = &TrueCommandConfigResource{}
 
 // TrueCommandConfigResource implements the truenas_truecommand_config
 // singleton resource. No version gate is needed: truecommand.config/
@@ -32,6 +34,10 @@ func (r *TrueCommandConfigResource) Metadata(_ context.Context, req resource.Met
 
 func (r *TrueCommandConfigResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+func (r *TrueCommandConfigResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.StringIDIdentitySchema()
 }
 
 func (r *TrueCommandConfigResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -102,6 +108,7 @@ func (r *TrueCommandConfigResource) Create(ctx context.Context, req resource.Cre
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, trueCommandConfigResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -124,6 +131,7 @@ func (r *TrueCommandConfigResource) Read(ctx context.Context, req resource.ReadR
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, trueCommandConfigResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -175,4 +183,5 @@ func (r *TrueCommandConfigResource) ImportState(ctx context.Context, req resourc
 	// all other fields are left unset so the subsequent Read call populates
 	// them directly from truecommand.config.
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), trueCommandConfigResourceID)...)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, trueCommandConfigResourceID)...)
 }

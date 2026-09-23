@@ -11,6 +11,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/action"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/list"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
@@ -117,6 +118,7 @@ import (
 
 var _ provider.Provider = &TrueNASProvider{}
 var _ provider.ProviderWithActions = &TrueNASProvider{}
+var _ provider.ProviderWithListResources = &TrueNASProvider{}
 
 type TrueNASProvider struct {
 	version string
@@ -255,6 +257,7 @@ func (p *TrueNASProvider) Configure(ctx context.Context, req provider.ConfigureR
 	resp.DataSourceData = c
 	resp.ResourceData = c
 	resp.ActionData = c
+	resp.ListResourceData = c
 }
 
 func (p *TrueNASProvider) Resources(_ context.Context) []func() resource.Resource {
@@ -451,6 +454,95 @@ func (p *TrueNASProvider) Actions(_ context.Context) []func() action.Action {
 		service_control.New,
 		snapshot_task_run.New,
 		ui_restart.New,
+	}
+}
+
+// ListResources returns the provider's list resources (terraform query; Terraform 1.14+).
+func (p *TrueNASProvider) ListResources(_ context.Context) []func() list.ListResource {
+	return []func() list.ListResource{
+		boot_environment.NewListResource,
+		ipmi_lan.NewListResource,
+		user.NewListResource,
+		dataset.NewListResource,
+		ssh_config.NewListResource,
+		group.NewListResource,
+		pool.NewListResource,
+		privilege.NewListResource,
+		certificate.NewListResource,
+		cronjob.NewListResource,
+		rsync_task.NewListResource,
+		replication.NewListResource,
+		cloudsync.NewListResource,
+		cloudsync_credentials.NewListResource,
+		periodic_snapshot.NewListResource,
+		scrub_task.NewListResource,
+		tunable.NewListResource,
+		iscsi_auth.NewListResource,
+		iscsi_extent.NewListResource,
+		iscsi_initiator.NewListResource,
+		iscsi_portal.NewListResource,
+		iscsi_target.NewListResource,
+		iscsi_targetextent.NewListResource,
+		nvmet_host.NewListResource,
+		nvmet_host_subsys.NewListResource,
+		nvmet_namespace.NewListResource,
+		nvmet_port.NewListResource,
+		nvmet_port_subsys.NewListResource,
+		nvmet_subsys.NewListResource,
+		acme_dns_authenticator.NewListResource,
+		acl_template.NewListResource,
+		alert_service.NewListResource,
+		api_key.NewListResource,
+		app_registry.NewListResource,
+		cloud_backup.NewListResource,
+		container.NewListResource,
+		container_device.NewListResource,
+		init_shutdown_script.NewListResource,
+		kerberos_keytab.NewListResource,
+		kerberos_realm.NewListResource,
+		ntp_server.NewListResource,
+		reporting_exporter.NewListResource,
+		static_route.NewListResource,
+		vm.NewListResource,
+		vm_device.NewListResource,
+		vmware.NewListResource,
+		smb.NewListResource,
+		webshare.NewListResource,
+		keychain_ssh_connection.NewListResource,
+		keychain_ssh_keypair.NewListResource,
+		app.NewListResource,
+		snapshot.NewListResource,
+		nfs.NewListResource,
+		network_interface.NewListResource,
+		enclosure_label.NewListResource,
+		service.NewListResource,
+		zvol.NewListResource,
+		alert_policy.NewListResource,
+		audit_config.NewListResource,
+		catalog_config.NewListResource,
+		directoryservices.NewListResource,
+		docker_config.NewListResource,
+		failover_config.NewListResource,
+		ftp_config.NewListResource,
+		iscsi_global.NewListResource,
+		kerberos_config.NewListResource,
+		lxc_config.NewListResource,
+		mail.NewListResource,
+		network_config.NewListResource,
+		nfs_config.NewListResource,
+		nvmet_global.NewListResource,
+		replication_config.NewListResource,
+		resilver_config.NewListResource,
+		smb_config.NewListResource,
+		snmp_config.NewListResource,
+		system_advanced.NewListResource,
+		system_dataset.NewListResource,
+		system_general.NewListResource,
+		tn_connect_config.NewListResource,
+		truecommand_config.NewListResource,
+		twofactor_auth.NewListResource,
+		ups_config.NewListResource,
+		webshare_config.NewListResource,
 	}
 }
 

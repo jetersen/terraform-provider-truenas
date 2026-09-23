@@ -11,10 +11,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 var _ resource.Resource = &FailoverConfigResource{}
 var _ resource.ResourceWithImportState = &FailoverConfigResource{}
+var _ resource.ResourceWithIdentity = &FailoverConfigResource{}
 
 // FailoverConfigResource implements the truenas_failover_config singleton
 // resource. No version or license gate is needed: failover.config/
@@ -32,6 +34,10 @@ func (r *FailoverConfigResource) Metadata(_ context.Context, req resource.Metada
 
 func (r *FailoverConfigResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+func (r *FailoverConfigResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.StringIDIdentitySchema()
 }
 
 func (r *FailoverConfigResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -100,6 +106,7 @@ func (r *FailoverConfigResource) Create(ctx context.Context, req resource.Create
 	}
 
 	responseToModel(api, &plan)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, failoverConfigResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -119,6 +126,7 @@ func (r *FailoverConfigResource) Read(ctx context.Context, req resource.ReadRequ
 	}
 
 	responseToModel(api, &state)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, failoverConfigResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -158,6 +166,7 @@ func (r *FailoverConfigResource) Update(ctx context.Context, req resource.Update
 	}
 
 	responseToModel(api, &plan)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, failoverConfigResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -175,4 +184,5 @@ func (r *FailoverConfigResource) ImportState(ctx context.Context, req resource.I
 	// all other fields are left unset so the subsequent Read call
 	// populates them directly from failover.config.
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), failoverConfigResourceID)...)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, failoverConfigResourceID)...)
 }

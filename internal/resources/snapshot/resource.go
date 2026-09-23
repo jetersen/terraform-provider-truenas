@@ -11,10 +11,12 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 var _ resource.Resource = &SnapshotResource{}
 var _ resource.ResourceWithImportState = &SnapshotResource{}
+var _ resource.ResourceWithIdentity = &SnapshotResource{}
 
 // SnapshotResource implements the truenas_snapshot resource.
 // Snapshots are immutable — there is no Update method.
@@ -30,6 +32,10 @@ func (r *SnapshotResource) Metadata(_ context.Context, req resource.MetadataRequ
 
 func (r *SnapshotResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+func (r *SnapshotResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.StringIDIdentitySchema()
 }
 
 func (r *SnapshotResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -80,6 +86,7 @@ func (r *SnapshotResource) Create(ctx context.Context, req resource.CreateReques
 	}
 
 	responseToModel(&api, &plan)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, plan.ID.ValueString())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -109,6 +116,7 @@ func (r *SnapshotResource) Read(ctx context.Context, req resource.ReadRequest, r
 
 	// preserve write-only recursive from state
 	responseToModel(&api, &state)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, state.ID.ValueString())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -134,15 +142,21 @@ func (r *SnapshotResource) Delete(ctx context.Context, req resource.DeleteReques
 }
 
 func (r *SnapshotResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	// Import ID must be "dataset@snapname".
-	parts := strings.SplitN(req.ID, "@", 2)
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		resp.Diagnostics.AddError("Invalid import ID",
-			fmt.Sprintf("expected \"dataset@snapname\", got %q", req.ID))
+	id, idDiags := listing.ImportString(ctx, req)
+	resp.Diagnostics.Append(idDiags...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	raw, err := r.client.CallRead(ctx, "pool.snapshot.get_instance", req.ID)
+	// Import ID must be "dataset@snapname".
+	parts := strings.SplitN(id, "@", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		resp.Diagnostics.AddError("Invalid import ID",
+			fmt.Sprintf("expected \"dataset@snapname\", got %q", id))
+		return
+	}
+
+	raw, err := r.client.CallRead(ctx, "pool.snapshot.get_instance", id)
 	if err != nil {
 		resp.Diagnostics.AddError("Import snapshot failed", err.Error())
 		return
@@ -157,5 +171,6 @@ func (r *SnapshotResource) ImportState(ctx context.Context, req resource.ImportS
 	var state SnapshotModel
 	// recursive is unknown after import; leave it null
 	responseToModel(&api, &state)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, state.ID.ValueString())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
