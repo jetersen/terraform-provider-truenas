@@ -272,7 +272,12 @@ func (r *EnclosureLabelResource) Delete(ctx context.Context, req resource.Delete
 // pre-populated", that refers to prior DATA, not instantiation), so this is
 // no different, mechanically, from what Create already does.
 func (r *EnclosureLabelResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	id := req.ID
+	id, idDiags := listing.ImportString(ctx, req)
+	resp.Diagnostics.Append(idDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	api, err := r.lookupEnclosure(ctx, id)
 	if err != nil {
 		resp.Diagnostics.AddError("Import enclosure label failed", err.Error())

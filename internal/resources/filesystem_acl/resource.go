@@ -201,7 +201,13 @@ func (r *FilesystemAclResource) ImportState(ctx context.Context, req resource.Im
 	// recursive/traverse are apply-time-only options with nothing on the
 	// wire to recover them from; they're left null and must be ignored via
 	// ImportStateVerifyIgnore.
-	raw, err := r.client.CallRead(ctx, "filesystem.getacl", req.ID)
+	id, idDiags := listing.ImportString(ctx, req)
+	resp.Diagnostics.Append(idDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	raw, err := r.client.CallRead(ctx, "filesystem.getacl", id)
 	if err != nil {
 		resp.Diagnostics.AddError("Import filesystem ACL failed", err.Error())
 		return

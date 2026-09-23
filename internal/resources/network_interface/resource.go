@@ -265,9 +265,15 @@ func (r *NetworkInterfaceResource) Delete(ctx context.Context, req resource.Dele
 }
 
 func (r *NetworkInterfaceResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+	id, idDiags := listing.ImportString(ctx, req)
+	resp.Diagnostics.Append(idDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
 	// id and name are both the interface name string; set both so the
 	// framework's subsequent Read (which looks up by state.ID) succeeds.
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("name"), req.ID)...)
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), req.ID)...)
-	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, req.ID)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("name"), id)...)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), id)...)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, id)...)
 }

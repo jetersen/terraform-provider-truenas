@@ -142,15 +142,21 @@ func (r *SnapshotResource) Delete(ctx context.Context, req resource.DeleteReques
 }
 
 func (r *SnapshotResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	// Import ID must be "dataset@snapname".
-	parts := strings.SplitN(req.ID, "@", 2)
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		resp.Diagnostics.AddError("Invalid import ID",
-			fmt.Sprintf("expected \"dataset@snapname\", got %q", req.ID))
+	id, idDiags := listing.ImportString(ctx, req)
+	resp.Diagnostics.Append(idDiags...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	raw, err := r.client.CallRead(ctx, "pool.snapshot.get_instance", req.ID)
+	// Import ID must be "dataset@snapname".
+	parts := strings.SplitN(id, "@", 2)
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		resp.Diagnostics.AddError("Invalid import ID",
+			fmt.Sprintf("expected \"dataset@snapname\", got %q", id))
+		return
+	}
+
+	raw, err := r.client.CallRead(ctx, "pool.snapshot.get_instance", id)
 	if err != nil {
 		resp.Diagnostics.AddError("Import snapshot failed", err.Error())
 		return

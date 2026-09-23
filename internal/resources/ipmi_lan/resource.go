@@ -365,9 +365,9 @@ func (r *IPMILanResource) Delete(_ context.Context, _ resource.DeleteRequest, re
 }
 
 func (r *IPMILanResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	channel, err := parseChannel(req.ID)
-	if err != nil {
-		resp.Diagnostics.AddError("Import ID must be an integer channel number", err.Error())
+	channel, idDiags := listing.ImportInt64(ctx, req)
+	resp.Diagnostics.Append(idDiags...)
+	if resp.Diagnostics.HasError() {
 		return
 	}
 

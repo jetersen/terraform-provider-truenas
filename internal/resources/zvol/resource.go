@@ -160,11 +160,17 @@ func (r *ZvolResource) Delete(ctx context.Context, req resource.DeleteRequest, r
 }
 
 func (r *ZvolResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	var state ZvolModel
-	state.Name = types.StringValue(req.ID)
-	state.ID = types.StringValue(req.ID)
+	id, idDiags := listing.ImportString(ctx, req)
+	resp.Diagnostics.Append(idDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
 
-	raw, err := r.client.CallRead(ctx, "pool.dataset.get_instance", req.ID)
+	var state ZvolModel
+	state.Name = types.StringValue(id)
+	state.ID = types.StringValue(id)
+
+	raw, err := r.client.CallRead(ctx, "pool.dataset.get_instance", id)
 	if err != nil {
 		resp.Diagnostics.AddError("Import zvol failed", err.Error())
 		return

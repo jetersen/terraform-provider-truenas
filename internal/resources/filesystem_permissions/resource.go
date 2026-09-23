@@ -174,7 +174,13 @@ func (r *FilesystemPermissionsResource) ImportState(ctx context.Context, req res
 	// recursive/traverse are apply-time-only options with nothing on the
 	// wire to recover them from; they're left null and must be ignored via
 	// ImportStateVerifyIgnore.
-	raw, err := r.client.CallRead(ctx, "filesystem.stat", req.ID)
+	id, idDiags := listing.ImportString(ctx, req)
+	resp.Diagnostics.Append(idDiags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	raw, err := r.client.CallRead(ctx, "filesystem.stat", id)
 	if err != nil {
 		resp.Diagnostics.AddError("Import filesystem permissions failed", err.Error())
 		return
@@ -187,7 +193,7 @@ func (r *FilesystemPermissionsResource) ImportState(ctx context.Context, req res
 	}
 
 	var state FilesystemPermissionsModel
-	resp.Diagnostics.Append(responseToModel(&api, req.ID, &state)...)
+	resp.Diagnostics.Append(responseToModel(&api, id, &state)...)
 	if resp.Diagnostics.HasError() {
 		return
 	}
