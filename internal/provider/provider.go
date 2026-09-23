@@ -9,11 +9,21 @@ import (
 	"os"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-framework/action"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/truenas/terraform-provider-truenas/internal/actions/app_redeploy"
+	"github.com/truenas/terraform-provider-truenas/internal/actions/app_start"
+	"github.com/truenas/terraform-provider-truenas/internal/actions/app_stop"
+	"github.com/truenas/terraform-provider-truenas/internal/actions/cloudsync_run"
+	"github.com/truenas/terraform-provider-truenas/internal/actions/replication_run"
+	"github.com/truenas/terraform-provider-truenas/internal/actions/scrub_run"
+	"github.com/truenas/terraform-provider-truenas/internal/actions/service_control"
+	"github.com/truenas/terraform-provider-truenas/internal/actions/snapshot_task_run"
+	"github.com/truenas/terraform-provider-truenas/internal/actions/ui_restart"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
 	"github.com/truenas/terraform-provider-truenas/internal/resources/acl_template"
 	"github.com/truenas/terraform-provider-truenas/internal/resources/acme_dns_authenticator"
@@ -106,6 +116,7 @@ import (
 )
 
 var _ provider.Provider = &TrueNASProvider{}
+var _ provider.ProviderWithActions = &TrueNASProvider{}
 
 type TrueNASProvider struct {
 	version string
@@ -243,6 +254,7 @@ func (p *TrueNASProvider) Configure(ctx context.Context, req provider.ConfigureR
 
 	resp.DataSourceData = c
 	resp.ResourceData = c
+	resp.ActionData = c
 }
 
 func (p *TrueNASProvider) Resources(_ context.Context) []func() resource.Resource {
@@ -424,6 +436,21 @@ func (p *TrueNASProvider) DataSources(_ context.Context) []func() datasource.Dat
 		webshare.NewDataSource,
 		webshare_config.NewDataSource,
 		zvol.NewDataSource,
+	}
+}
+
+// Actions returns the provider's Terraform Actions (Terraform 1.14+).
+func (p *TrueNASProvider) Actions(_ context.Context) []func() action.Action {
+	return []func() action.Action{
+		app_redeploy.New,
+		app_start.New,
+		app_stop.New,
+		cloudsync_run.New,
+		replication_run.New,
+		scrub_run.New,
+		service_control.New,
+		snapshot_task_run.New,
+		ui_restart.New,
 	}
 }
 

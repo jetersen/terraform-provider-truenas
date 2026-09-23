@@ -46,6 +46,7 @@ Working examples for every resource are under [`examples/resources/`](examples/r
 ## Requirements
 
 - [Terraform](https://developer.hashicorp.com/terraform/downloads) >= 1.11 (write-only secret attributes)
+- Terraform Actions (e.g. `truenas_scrub_run`) require Terraform 1.14 or newer.
 - [Go](https://go.dev/doc/install) >= 1.25 (to build from source)
 - TrueNAS 25.04+ (the provider speaks the versioned JSON-RPC 2.0 API
   at `/api/current`, introduced in 25.04; older releases only offer the
