@@ -7,11 +7,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/hashicorp/terraform-plugin-framework/action"
 	"github.com/hashicorp/terraform-plugin-framework/action/schema"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/hashicorp/terraform-plugin-framework-validators/stringvalidator"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
 )
 
@@ -26,6 +26,7 @@ func New() action.Action { return &Action{} }
 type model struct {
 	Service types.String `tfsdk:"service"`
 	Verb    types.String `tfsdk:"verb"`
+	Wait    types.Bool   `tfsdk:"wait"`
 }
 
 func (a *Action) Metadata(_ context.Context, req action.MetadataRequest, resp *action.MetadataResponse) {
@@ -36,6 +37,10 @@ func (a *Action) Schema(_ context.Context, _ action.SchemaRequest, resp *action.
 	resp.Schema = schema.Schema{
 		Description: "Controls a TrueNAS service (service.control). Requires TrueNAS 26.0+.",
 		Attributes: map[string]schema.Attribute{
+			"wait": schema.BoolAttribute{
+				Optional:    true,
+				Description: "Wait for the job to finish (default true). Set false to start it and return immediately without polling.",
+			},
 			"service": schema.StringAttribute{
 				Required:    true,
 				Description: "Service name, e.g. \"cifs\", \"nfs\", \"ssh\".",
@@ -76,12 +81,24 @@ func (a *Action) Invoke(ctx context.Context, req action.InvokeRequest, resp *act
 	if resp.SendProgress != nil {
 		resp.SendProgress(action.InvokeProgressEvent{Message: fmt.Sprintf("%s %s…", cfg.Verb.ValueString(), cfg.Service.ValueString())})
 	}
-	if _, err := a.client.CallJob(ctx, "service.control", buildParams(cfg)...); err != nil {
+	wait := true
+	if !cfg.Wait.IsNull() && !cfg.Wait.IsUnknown() {
+		wait = cfg.Wait.ValueBool()
+	}
+	run := a.client.CallJob
+	if !wait {
+		run = a.client.Call
+	}
+	if _, err := run(ctx, "service.control", buildParams(cfg)...); err != nil {
 		resp.Diagnostics.AddError("Service control failed", err.Error())
 		return
 	}
 	if resp.SendProgress != nil {
-		resp.SendProgress(action.InvokeProgressEvent{Message: "Service control completed."})
+		msg := "Service control completed."
+		if !wait {
+			msg = "Started; not waiting for completion."
+		}
+		resp.SendProgress(action.InvokeProgressEvent{Message: msg})
 	}
 }
 

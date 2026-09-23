@@ -29,3 +29,7 @@ action "truenas_cloudsync_run" "example" {
 ### Required
 
 - `id` (Number) Cloud sync task id (truenas_cloudsync.<name>.id).
+
+### Optional
+
+- `wait` (Boolean) Wait for the job to finish (default true). Set false to start it and return immediately without polling.

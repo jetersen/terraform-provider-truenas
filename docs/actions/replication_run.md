@@ -29,3 +29,7 @@ action "truenas_replication_run" "example" {
 ### Required
 
 - `id` (Number) Replication task id (truenas_replication.<name>.id).
+
+### Optional
+
+- `wait` (Boolean) Wait for the job to finish (default true). Set false to start it and return immediately without polling.

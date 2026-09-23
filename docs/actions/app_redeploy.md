@@ -30,3 +30,7 @@ action "truenas_app_redeploy" "example" {
 ### Required
 
 - `app_name` (String) App name (truenas_app.<name>.name).
+
+### Optional
+
+- `wait` (Boolean) Wait for the job to finish (default true). Set false to start it and return immediately without polling.

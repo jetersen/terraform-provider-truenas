@@ -55,3 +55,12 @@ func TestVersionGate(t *testing.T) {
 		}
 	}
 }
+
+func TestSchema_HasWait(t *testing.T) {
+	a := &Action{}
+	resp := &action.SchemaResponse{}
+	a.Schema(context.Background(), action.SchemaRequest{}, resp)
+	if _, ok := resp.Schema.Attributes["wait"]; !ok {
+		t.Fatal("schema missing 'wait' attribute")
+	}
+}

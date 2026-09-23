@@ -23,6 +23,7 @@ func New() action.Action { return &Action{} }
 
 type model struct {
 	AppName types.String `tfsdk:"app_name"`
+	Wait    types.Bool   `tfsdk:"wait"`
 }
 
 func (a *Action) Metadata(_ context.Context, req action.MetadataRequest, resp *action.MetadataResponse) {
@@ -33,6 +34,10 @@ func (a *Action) Schema(_ context.Context, _ action.SchemaRequest, resp *action.
 	resp.Schema = schema.Schema{
 		Description: "Redeploys an app (app.redeploy).",
 		Attributes: map[string]schema.Attribute{
+			"wait": schema.BoolAttribute{
+				Optional:    true,
+				Description: "Wait for the job to finish (default true). Set false to start it and return immediately without polling.",
+			},
 			"app_name": schema.StringAttribute{
 				Required:    true,
 				Description: "App name (truenas_app.<name>.name).",
@@ -62,12 +67,24 @@ func (a *Action) Invoke(ctx context.Context, req action.InvokeRequest, resp *act
 	if resp.SendProgress != nil {
 		resp.SendProgress(action.InvokeProgressEvent{Message: "Redeploying app…"})
 	}
-	if _, err := a.client.CallJob(ctx, "app.redeploy", buildParams(cfg)...); err != nil {
+	wait := true
+	if !cfg.Wait.IsNull() && !cfg.Wait.IsUnknown() {
+		wait = cfg.Wait.ValueBool()
+	}
+	run := a.client.CallJob
+	if !wait {
+		run = a.client.Call
+	}
+	if _, err := run(ctx, "app.redeploy", buildParams(cfg)...); err != nil {
 		resp.Diagnostics.AddError("App redeploy failed", err.Error())
 		return
 	}
 	if resp.SendProgress != nil {
-		resp.SendProgress(action.InvokeProgressEvent{Message: "App redeployed."})
+		msg := "App redeployed."
+		if !wait {
+			msg = "Started; not waiting for completion."
+		}
+		resp.SendProgress(action.InvokeProgressEvent{Message: msg})
 	}
 }
 

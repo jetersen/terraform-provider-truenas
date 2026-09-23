@@ -29,3 +29,7 @@ action "truenas_service_control" "example" {
 
 - `service` (String) Service name, e.g. "cifs", "nfs", "ssh".
 - `verb` (String) One of START, STOP, RESTART, RELOAD.
+
+### Optional
+
+- `wait` (Boolean) Wait for the job to finish (default true). Set false to start it and return immediately without polling.

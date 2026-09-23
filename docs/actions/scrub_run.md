@@ -23,6 +23,10 @@ data "truenas_pool" "tank" {
 action "truenas_scrub_run" "example" {
   config {
     pool_id = data.truenas_pool.tank.id
+
+    # By default the action blocks until the scrub job finishes (which can be
+    # a long time). Set wait = false to start it and return immediately.
+    # wait = false
   }
 }
 ```
@@ -33,3 +37,7 @@ action "truenas_scrub_run" "example" {
 ### Required
 
 - `pool_id` (Number) Pool id to scrub (truenas_pool.<name>.id).
+
+### Optional
+
+- `wait` (Boolean) Wait for the job to finish (default true). Set false to start it and return immediately without polling.

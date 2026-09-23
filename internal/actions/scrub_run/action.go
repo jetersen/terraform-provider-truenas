@@ -23,6 +23,7 @@ func New() action.Action { return &Action{} }
 
 type model struct {
 	PoolID types.Int64 `tfsdk:"pool_id"`
+	Wait   types.Bool  `tfsdk:"wait"`
 }
 
 func (a *Action) Metadata(_ context.Context, req action.MetadataRequest, resp *action.MetadataResponse) {
@@ -33,6 +34,10 @@ func (a *Action) Schema(_ context.Context, _ action.SchemaRequest, resp *action.
 	resp.Schema = schema.Schema{
 		Description: "Starts a scrub on a pool (pool.scrub, action START).",
 		Attributes: map[string]schema.Attribute{
+			"wait": schema.BoolAttribute{
+				Optional:    true,
+				Description: "Wait for the job to finish (default true). Set false to start it and return immediately without polling.",
+			},
 			"pool_id": schema.Int64Attribute{
 				Required:    true,
 				Description: "Pool id to scrub (truenas_pool.<name>.id).",
@@ -62,12 +67,24 @@ func (a *Action) Invoke(ctx context.Context, req action.InvokeRequest, resp *act
 	if resp.SendProgress != nil {
 		resp.SendProgress(action.InvokeProgressEvent{Message: "Starting pool scrub…"})
 	}
-	if _, err := a.client.CallJob(ctx, "pool.scrub", buildParams(cfg)...); err != nil {
+	wait := true
+	if !cfg.Wait.IsNull() && !cfg.Wait.IsUnknown() {
+		wait = cfg.Wait.ValueBool()
+	}
+	run := a.client.CallJob
+	if !wait {
+		run = a.client.Call
+	}
+	if _, err := run(ctx, "pool.scrub", buildParams(cfg)...); err != nil {
 		resp.Diagnostics.AddError("Scrub run failed", err.Error())
 		return
 	}
 	if resp.SendProgress != nil {
-		resp.SendProgress(action.InvokeProgressEvent{Message: "Pool scrub completed."})
+		msg := "Pool scrub completed."
+		if !wait {
+			msg = "Started; not waiting for completion."
+		}
+		resp.SendProgress(action.InvokeProgressEvent{Message: msg})
 	}
 }
 
