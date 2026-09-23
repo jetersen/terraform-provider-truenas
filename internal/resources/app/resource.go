@@ -11,10 +11,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 var _ resource.Resource = &AppResource{}
 var _ resource.ResourceWithImportState = &AppResource{}
+var _ resource.ResourceWithIdentity = &AppResource{}
 
 // AppResource manages a single TrueNAS app (Docker-based, TrueNAS 24.10+).
 type AppResource struct{ client *client.Client }
@@ -28,6 +30,10 @@ func (r *AppResource) Metadata(_ context.Context, req resource.MetadataRequest, 
 
 func (r *AppResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+func (r *AppResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.StringIDIdentitySchema()
 }
 
 func (r *AppResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -117,6 +123,7 @@ func (r *AppResource) Create(ctx context.Context, req resource.CreateRequest, re
 	// by the API (write-only). responseToModel does not touch them, so the
 	// plan's values are preserved in state as-is.
 	responseToModel(api, &plan)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, plan.ID.ValueString())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -144,6 +151,7 @@ func (r *AppResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 	// the API never echoes these back, so we must preserve whatever is
 	// already in state.
 	responseToModel(api, &state)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, state.ID.ValueString())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -233,4 +241,6 @@ func (r *AppResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 
 func (r *AppResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("name"), req, resp)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), req.ID)...)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, req.ID)...)
 }

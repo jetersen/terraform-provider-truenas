@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 // privateSetter is the subset of *privatestate.ProviderData (an internal
@@ -25,6 +26,7 @@ type privateSetter interface {
 
 var _ resource.Resource = &EnclosureLabelResource{}
 var _ resource.ResourceWithImportState = &EnclosureLabelResource{}
+var _ resource.ResourceWithIdentity = &EnclosureLabelResource{}
 
 // EnclosureLabelResource implements the truenas_enclosure_label resource:
 // the user-settable "label" of one pre-existing TrueNAS storage enclosure.
@@ -41,6 +43,10 @@ func (r *EnclosureLabelResource) Metadata(_ context.Context, req resource.Metada
 
 func (r *EnclosureLabelResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+func (r *EnclosureLabelResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.StringIDIdentitySchema()
 }
 
 func (r *EnclosureLabelResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -145,6 +151,7 @@ func (r *EnclosureLabelResource) Create(ctx context.Context, req resource.Create
 	}
 
 	responseToModel(after, &plan)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, plan.ID.ValueString())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -169,6 +176,7 @@ func (r *EnclosureLabelResource) Read(ctx context.Context, req resource.ReadRequ
 	// framework unless this method explicitly changes it — nothing to do
 	// here, the originally captured label stays intact across refreshes.
 	responseToModel(api, &state)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, state.ID.ValueString())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -278,5 +286,6 @@ func (r *EnclosureLabelResource) ImportState(ctx context.Context, req resource.I
 
 	var state EnclosureLabelModel
 	responseToModel(api, &state)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, state.ID.ValueString())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }

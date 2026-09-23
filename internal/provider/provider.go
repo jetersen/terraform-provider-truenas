@@ -481,6 +481,13 @@ func (p *TrueNASProvider) ListResources(_ context.Context) []func() list.ListRes
 		webshare.NewListResource,
 		keychain_ssh_connection.NewListResource,
 		keychain_ssh_keypair.NewListResource,
+		app.NewListResource,
+		snapshot.NewListResource,
+		nfs.NewListResource,
+		network_interface.NewListResource,
+		enclosure_label.NewListResource,
+		service.NewListResource,
+		zvol.NewListResource,
 	}
 }
 
