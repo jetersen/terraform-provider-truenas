@@ -10,8 +10,11 @@ import (
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/hashicorp/terraform-plugin-testing/querycheck"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
+	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
 	"github.com/hashicorp/terraform-plugin-testing/tfversion"
 	"github.com/truenas/terraform-provider-truenas/internal/acctest"
 )
@@ -63,9 +66,35 @@ func TestAccUser_basic(t *testing.T) {
 
 // TestAccUser_identityImport creates a local user and re-imports it using
 // an import block keyed by resource identity (Terraform 1.12+), rather than
-// the legacy `terraform import ID` command. ImportStateVerify checks that
-// the round-tripped state matches, modulo the write-only fields that are
-// never read back (see TestAccUser_basic).
+// the legacy `terraform import ID` command.
+//
+// ImportStateVerify is not supported with plannable import blocks
+// (ImportBlockWithID / ImportBlockWithResourceIdentity): terraform-plugin-
+// testing v1.16 rejects that combination outright (see
+// testStepNewImportState's importStatePreconditions, which returns
+// "ImportStateVerify is not supported with plannable import blocks" whenever
+// kind.plannable() && step.ImportStateVerify). For a plannable identity
+// import the framework instead runs a real `terraform plan` right after the
+// import and, unless the step sets ExpectNonEmptyPlan, requires that plan to
+// be a no-op; it also automatically compares the pre- and post-import
+// resource identity values for equality — that is this kind of step's
+// built-in round-trip check.
+//
+// This step sets ExpectNonEmptyPlan: true because that post-import plan is
+// genuinely non-empty here, for the same reason TestAccUser_basic's
+// ImportStateVerifyIgnore lists "group_create": group_create is sent only on
+// create and is never read back from the API, so after import the plan sees
+// it go from unset to the configured value. Several other optional+computed
+// attributes (email, locked, ssh_password_enabled, sshpubkey, sudo_commands,
+// sudo_commands_nopasswd, groups) aren't set in testAccUserConfig either, and
+// the framework's default behavior for an optional+computed attribute with
+// no config value and no UseStateForUnknown plan modifier is to mark it
+// unknown on any plan that isn't a true no-op — which is exactly the
+// documented case for ExpectNonEmptyPlan: "importing a resource that cannot
+// read its entire value back from the remote API." ImportPlanChecks.PreApply
+// below still asserts, explicitly, that the import lands correctly: the plan
+// action is the expected in-place update (not a create/replace/destroy) and
+// the imported username is exactly the one that was created.
 func TestAccUser_identityImport(t *testing.T) {
 	username := acctest.RandName("tf-acc-user-ident")
 
@@ -85,11 +114,16 @@ func TestAccUser_identityImport(t *testing.T) {
 				),
 			},
 			{
-				ResourceName:            "truenas_user.test",
-				ImportState:             true,
-				ImportStateKind:         resource.ImportBlockWithResourceIdentity,
-				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"password", "group_create"},
+				ResourceName:       "truenas_user.test",
+				ImportState:        true,
+				ImportStateKind:    resource.ImportBlockWithResourceIdentity,
+				ExpectNonEmptyPlan: true, // group_create (and other unread-back computed attrs) diff post-import; see doc comment above
+				ImportPlanChecks: resource.ImportPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction("truenas_user.test", plancheck.ResourceActionUpdate),
+						plancheck.ExpectKnownValue("truenas_user.test", tfjsonpath.New("username"), knownvalue.StringExact(username)),
+					},
+				},
 			},
 		},
 	})
@@ -118,8 +152,19 @@ func TestAccUser_list(t *testing.T) {
 				Config: acctest.ProviderConfig() + testAccUserConfig(username, "List Test User", "/usr/bin/bash"),
 			},
 			{
+				// The Query step's config must NOT redeclare the "truenas"
+				// provider block: WorkingDir.SetQuery only clears stale
+				// *.tfquery.hcl/*.json files, not the *.tf file the prior
+				// step's SetConfig left behind (see terraform-plugin-testing
+				// v1.16's internal/plugintest/working_dir.go SetQuery, which
+				// filters on a ".warioform" extension rather than ".tf").
+				// That leftover file's `provider "truenas" {}` block is still
+				// present on disk when this step runs, so adding
+				// acctest.ProviderConfig() here again produces "Duplicate
+				// provider configuration ... A default (non-aliased)
+				// provider configuration for \"truenas\" was already given".
 				Query: true,
-				Config: acctest.ProviderConfig() + `
+				Config: `
 list "truenas_user" "test" {
   provider = truenas
   config {}
