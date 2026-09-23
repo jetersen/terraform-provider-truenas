@@ -3,6 +3,6 @@
 # hardcoding it (or discover it with `midclt call cloudsync.query`).
 action "truenas_cloudsync_run" "example" {
   config {
-    id = truenas_cloudsync.offsite.id
+    id = truenas_cloudsync_task.offsite.id
   }
 }

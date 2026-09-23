@@ -26,3 +26,16 @@ func TestBuildParams(t *testing.T) {
 		t.Errorf("buildParams = %#v, want [4]", got)
 	}
 }
+
+func TestSchema_HasWait(t *testing.T) {
+	a := &Action{}
+	resp := &action.SchemaResponse{}
+	a.Schema(context.Background(), action.SchemaRequest{}, resp)
+	attr, ok := resp.Schema.Attributes["wait"]
+	if !ok {
+		t.Fatal("schema missing 'wait' attribute")
+	}
+	if !attr.IsOptional() {
+		t.Error("'wait' should be Optional")
+	}
+}

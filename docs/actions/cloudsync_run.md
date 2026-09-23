@@ -18,7 +18,7 @@ Runs a cloud sync task now (cloudsync.sync).
 # hardcoding it (or discover it with `midclt call cloudsync.query`).
 action "truenas_cloudsync_run" "example" {
   config {
-    id = truenas_cloudsync.offsite.id
+    id = truenas_cloudsync_task.offsite.id
   }
 }
 ```
@@ -28,7 +28,7 @@ action "truenas_cloudsync_run" "example" {
 
 ### Required
 
-- `id` (Number) Cloud sync task id (truenas_cloudsync.<name>.id).
+- `id` (Number) Cloud sync task id (truenas_cloudsync_task.<name>.id).
 
 ### Optional
 

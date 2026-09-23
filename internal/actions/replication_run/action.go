@@ -40,7 +40,7 @@ func (a *Action) Schema(_ context.Context, _ action.SchemaRequest, resp *action.
 			},
 			"id": schema.Int64Attribute{
 				Required:    true,
-				Description: "Replication task id (truenas_replication.<name>.id).",
+				Description: "Replication task id (truenas_replication_task.<name>.id).",
 			},
 		},
 	}

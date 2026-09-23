@@ -40,7 +40,7 @@ func (a *Action) Schema(_ context.Context, _ action.SchemaRequest, resp *action.
 			},
 			"id": schema.Int64Attribute{
 				Required:    true,
-				Description: "Cloud sync task id (truenas_cloudsync.<name>.id).",
+				Description: "Cloud sync task id (truenas_cloudsync_task.<name>.id).",
 			},
 		},
 	}

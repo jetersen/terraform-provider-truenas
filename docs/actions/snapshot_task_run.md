@@ -18,7 +18,7 @@ Runs a periodic snapshot task immediately (pool.snapshottask.run).
 # hardcoding it (or discover it with `midclt call pool.snapshottask.query`).
 action "truenas_snapshot_task_run" "example" {
   config {
-    id = truenas_periodic_snapshot.hourly.id
+    id = truenas_periodic_snapshot_task.hourly.id
   }
 }
 ```
@@ -28,4 +28,4 @@ action "truenas_snapshot_task_run" "example" {
 
 ### Required
 
-- `id` (Number) Periodic snapshot task id (truenas_periodic_snapshot.<name>.id).
+- `id` (Number) Periodic snapshot task id (truenas_periodic_snapshot_task.<name>.id).

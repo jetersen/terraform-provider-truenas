@@ -35,7 +35,7 @@ func (a *Action) Schema(_ context.Context, _ action.SchemaRequest, resp *action.
 		Attributes: map[string]schema.Attribute{
 			"id": schema.Int64Attribute{
 				Required:    true,
-				Description: "Periodic snapshot task id (truenas_periodic_snapshot.<name>.id).",
+				Description: "Periodic snapshot task id (truenas_periodic_snapshot_task.<name>.id).",
 			},
 		},
 	}

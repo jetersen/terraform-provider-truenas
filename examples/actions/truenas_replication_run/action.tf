@@ -3,6 +3,6 @@
 # hardcoding it (or discover it with `midclt call replication.query`).
 action "truenas_replication_run" "example" {
   config {
-    id = truenas_replication.nightly.id
+    id = truenas_replication_task.nightly.id
   }
 }

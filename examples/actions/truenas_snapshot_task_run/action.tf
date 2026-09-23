@@ -3,6 +3,6 @@
 # hardcoding it (or discover it with `midclt call pool.snapshottask.query`).
 action "truenas_snapshot_task_run" "example" {
   config {
-    id = truenas_periodic_snapshot.hourly.id
+    id = truenas_periodic_snapshot_task.hourly.id
   }
 }

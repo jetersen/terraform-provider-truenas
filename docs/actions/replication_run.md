@@ -18,7 +18,7 @@ Runs a replication task now (replication.run).
 # hardcoding it (or discover it with `midclt call replication.query`).
 action "truenas_replication_run" "example" {
   config {
-    id = truenas_replication.nightly.id
+    id = truenas_replication_task.nightly.id
   }
 }
 ```
@@ -28,7 +28,7 @@ action "truenas_replication_run" "example" {
 
 ### Required
 
-- `id` (Number) Replication task id (truenas_replication.<name>.id).
+- `id` (Number) Replication task id (truenas_replication_task.<name>.id).
 
 ### Optional
 
