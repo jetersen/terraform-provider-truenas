@@ -13,10 +13,12 @@ Runs a periodic snapshot task immediately (pool.snapshottask.run).
 ## Example Usage
 
 ```terraform
-# Trigger an on-demand run of a periodic snapshot task (Terraform 1.14+).
+# Run a periodic snapshot task now (Terraform 1.14+).
+# id is the numeric task id — reference the managing resource rather than
+# hardcoding it (or discover it with `midclt call pool.snapshottask.query`).
 action "truenas_snapshot_task_run" "example" {
   config {
-    id = 1
+    id = truenas_periodic_snapshot.hourly.id
   }
 }
 ```

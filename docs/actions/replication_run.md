@@ -13,10 +13,12 @@ Runs a replication task now (replication.run).
 ## Example Usage
 
 ```terraform
-# Trigger an on-demand run of a replication task (Terraform 1.14+).
+# Run a replication task now (Terraform 1.14+).
+# id is the numeric task id — reference the managing resource rather than
+# hardcoding it (or discover it with `midclt call replication.query`).
 action "truenas_replication_run" "example" {
   config {
-    id = 1
+    id = truenas_replication.nightly.id
   }
 }
 ```

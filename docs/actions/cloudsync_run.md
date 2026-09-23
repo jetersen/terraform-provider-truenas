@@ -13,10 +13,12 @@ Runs a cloud sync task now (cloudsync.sync).
 ## Example Usage
 
 ```terraform
-# Trigger an on-demand run of a cloud sync task (Terraform 1.14+).
+# Run a cloud sync task now (Terraform 1.14+).
+# id is the numeric task id — reference the managing resource rather than
+# hardcoding it (or discover it with `midclt call cloudsync.query`).
 action "truenas_cloudsync_run" "example" {
   config {
-    id = 1
+    id = truenas_cloudsync.offsite.id
   }
 }
 ```
