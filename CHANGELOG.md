@@ -6,6 +6,27 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-23
+
+### Added
+- **Terraform Actions** (Terraform 1.14+): trigger operational TrueNAS jobs from
+  Terraform. Nine actions — `truenas_scrub_run`, `truenas_replication_run`,
+  `truenas_cloudsync_run`, `truenas_snapshot_task_run`, `truenas_service_control`
+  (verb START/STOP/RESTART/RELOAD), `truenas_app_start`, `truenas_app_stop`,
+  `truenas_app_redeploy`, and `truenas_ui_restart`. Job-backed actions take an
+  optional `wait` (default `true`); set `wait = false` to start the job and
+  return immediately instead of blocking until it completes.
+  `truenas_service_control` requires TrueNAS 26.0+.
+- **List resources / `terraform query`** (Terraform 1.14+): every resource can
+  be enumerated to discover objects that already exist on a TrueNAS system,
+  independent of Terraform state — the discovery half of the import story. See
+  `examples/list/` (including `discover-all.tfquery.hcl`, a full-system
+  inventory).
+- **Resource Identity** (Terraform 1.12+): every resource now has an identity
+  schema and supports identity-based import, e.g.
+  `import { to = truenas_pool.tank, identity = { id = 1 } }`. String-id import
+  (`terraform import`) continues to work unchanged.
+
 ## [1.0.11] - 2026-09-21
 
 ### Changed
