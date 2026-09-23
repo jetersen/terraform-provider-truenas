@@ -501,6 +501,19 @@ func (p *TrueNASProvider) ListResources(_ context.Context) []func() list.ListRes
 		mail.NewListResource,
 		network_config.NewListResource,
 		nfs_config.NewListResource,
+		nvmet_global.NewListResource,
+		replication_config.NewListResource,
+		resilver_config.NewListResource,
+		smb_config.NewListResource,
+		snmp_config.NewListResource,
+		system_advanced.NewListResource,
+		system_dataset.NewListResource,
+		system_general.NewListResource,
+		tn_connect_config.NewListResource,
+		truecommand_config.NewListResource,
+		twofactor_auth.NewListResource,
+		ups_config.NewListResource,
+		webshare_config.NewListResource,
 	}
 }
 

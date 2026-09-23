@@ -11,10 +11,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 var _ resource.Resource = &NVMeTGlobalResource{}
 var _ resource.ResourceWithImportState = &NVMeTGlobalResource{}
+var _ resource.ResourceWithIdentity = &NVMeTGlobalResource{}
 
 // NVMeTGlobalResource implements the truenas_nvmet_global singleton resource.
 type NVMeTGlobalResource struct{ client *client.Client }
@@ -28,6 +30,10 @@ func (r *NVMeTGlobalResource) Metadata(_ context.Context, req resource.MetadataR
 
 func (r *NVMeTGlobalResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+func (r *NVMeTGlobalResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.StringIDIdentitySchema()
 }
 
 func (r *NVMeTGlobalResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -86,6 +92,7 @@ func (r *NVMeTGlobalResource) Create(ctx context.Context, req resource.CreateReq
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, nvmetGlobalResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -108,6 +115,7 @@ func (r *NVMeTGlobalResource) Read(ctx context.Context, req resource.ReadRequest
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, nvmetGlobalResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -156,4 +164,5 @@ func (r *NVMeTGlobalResource) ImportState(ctx context.Context, req resource.Impo
 	// other fields are left unset so the subsequent Read call populates them
 	// directly from nvmet.global.config.
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), nvmetGlobalResourceID)...)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, nvmetGlobalResourceID)...)
 }

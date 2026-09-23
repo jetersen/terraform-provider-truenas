@@ -11,10 +11,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 var _ resource.Resource = &ResilverConfigResource{}
 var _ resource.ResourceWithImportState = &ResilverConfigResource{}
+var _ resource.ResourceWithIdentity = &ResilverConfigResource{}
 
 // ResilverConfigResource implements the truenas_resilver_config singleton
 // resource.
@@ -29,6 +31,10 @@ func (r *ResilverConfigResource) Metadata(_ context.Context, req resource.Metada
 
 func (r *ResilverConfigResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+func (r *ResilverConfigResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.StringIDIdentitySchema()
 }
 
 func (r *ResilverConfigResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -87,6 +93,7 @@ func (r *ResilverConfigResource) Create(ctx context.Context, req resource.Create
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, resilverConfigResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -109,6 +116,7 @@ func (r *ResilverConfigResource) Read(ctx context.Context, req resource.ReadRequ
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, resilverConfigResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -157,4 +165,5 @@ func (r *ResilverConfigResource) ImportState(ctx context.Context, req resource.I
 	// other fields are left unset so the subsequent Read call populates them
 	// directly from pool.resilver.config.
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), resilverConfigResourceID)...)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, resilverConfigResourceID)...)
 }

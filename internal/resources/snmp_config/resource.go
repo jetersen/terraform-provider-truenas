@@ -11,10 +11,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 var _ resource.Resource = &SNMPConfigResource{}
 var _ resource.ResourceWithImportState = &SNMPConfigResource{}
+var _ resource.ResourceWithIdentity = &SNMPConfigResource{}
 
 // SNMPConfigResource implements the truenas_snmp_config singleton resource.
 type SNMPConfigResource struct{ client *client.Client }
@@ -28,6 +30,10 @@ func (r *SNMPConfigResource) Metadata(_ context.Context, req resource.MetadataRe
 
 func (r *SNMPConfigResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+func (r *SNMPConfigResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.StringIDIdentitySchema()
 }
 
 func (r *SNMPConfigResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -94,6 +100,7 @@ func (r *SNMPConfigResource) Create(ctx context.Context, req resource.CreateRequ
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, snmpConfigResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -119,6 +126,7 @@ func (r *SNMPConfigResource) Read(ctx context.Context, req resource.ReadRequest,
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, snmpConfigResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -171,4 +179,5 @@ func (r *SNMPConfigResource) ImportState(ctx context.Context, req resource.Impor
 	// other fields are left unset so the subsequent Read call populates them
 	// directly from snmp.config.
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), snmpConfigResourceID)...)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, snmpConfigResourceID)...)
 }

@@ -11,10 +11,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 var _ resource.Resource = &SystemDatasetResource{}
 var _ resource.ResourceWithImportState = &SystemDatasetResource{}
+var _ resource.ResourceWithIdentity = &SystemDatasetResource{}
 
 // SystemDatasetResource implements the truenas_system_dataset singleton
 // resource.
@@ -29,6 +31,10 @@ func (r *SystemDatasetResource) Metadata(_ context.Context, req resource.Metadat
 
 func (r *SystemDatasetResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+func (r *SystemDatasetResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.StringIDIdentitySchema()
 }
 
 func (r *SystemDatasetResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -96,6 +102,7 @@ func (r *SystemDatasetResource) Create(ctx context.Context, req resource.CreateR
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, systemDatasetResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -118,6 +125,7 @@ func (r *SystemDatasetResource) Read(ctx context.Context, req resource.ReadReque
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, systemDatasetResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -166,4 +174,5 @@ func (r *SystemDatasetResource) ImportState(ctx context.Context, req resource.Im
 	// other fields are left unset so the subsequent Read call populates them
 	// directly from systemdataset.config.
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), systemDatasetResourceID)...)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, systemDatasetResourceID)...)
 }

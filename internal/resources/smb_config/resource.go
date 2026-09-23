@@ -12,10 +12,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 var _ resource.Resource = &SMBConfigResource{}
 var _ resource.ResourceWithImportState = &SMBConfigResource{}
+var _ resource.ResourceWithIdentity = &SMBConfigResource{}
 
 // SMBConfigResource implements the truenas_smb_config singleton resource.
 type SMBConfigResource struct{ client *client.Client }
@@ -29,6 +31,10 @@ func (r *SMBConfigResource) Metadata(_ context.Context, req resource.MetadataReq
 
 func (r *SMBConfigResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+func (r *SMBConfigResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.StringIDIdentitySchema()
 }
 
 func (r *SMBConfigResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -170,6 +176,7 @@ func (r *SMBConfigResource) Create(ctx context.Context, req resource.CreateReque
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, smbConfigResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -192,6 +199,7 @@ func (r *SMBConfigResource) Read(ctx context.Context, req resource.ReadRequest, 
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, smbConfigResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -249,4 +257,5 @@ func (r *SMBConfigResource) ImportState(ctx context.Context, req resource.Import
 	// other fields are left unset so the subsequent Read call populates them
 	// directly from smb.config.
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), smbConfigResourceID)...)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, smbConfigResourceID)...)
 }

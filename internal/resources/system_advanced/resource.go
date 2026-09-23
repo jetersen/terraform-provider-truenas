@@ -13,10 +13,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 var _ resource.Resource = &SystemAdvancedResource{}
 var _ resource.ResourceWithImportState = &SystemAdvancedResource{}
+var _ resource.ResourceWithIdentity = &SystemAdvancedResource{}
 
 // SystemAdvancedResource implements the truenas_system_advanced singleton
 // resource.
@@ -31,6 +33,10 @@ func (r *SystemAdvancedResource) Metadata(_ context.Context, req resource.Metada
 
 func (r *SystemAdvancedResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+func (r *SystemAdvancedResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.StringIDIdentitySchema()
 }
 
 func (r *SystemAdvancedResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -158,6 +164,7 @@ func (r *SystemAdvancedResource) Create(ctx context.Context, req resource.Create
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, systemAdvancedResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -180,6 +187,7 @@ func (r *SystemAdvancedResource) Read(ctx context.Context, req resource.ReadRequ
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, systemAdvancedResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -240,4 +248,5 @@ func (r *SystemAdvancedResource) ImportState(ctx context.Context, req resource.I
 	// other fields are left unset so the subsequent Read call populates them
 	// directly from system.advanced.config.
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), systemAdvancedResourceID)...)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, systemAdvancedResourceID)...)
 }
