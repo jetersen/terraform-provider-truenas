@@ -488,6 +488,19 @@ func (p *TrueNASProvider) ListResources(_ context.Context) []func() list.ListRes
 		enclosure_label.NewListResource,
 		service.NewListResource,
 		zvol.NewListResource,
+		alert_policy.NewListResource,
+		audit_config.NewListResource,
+		catalog_config.NewListResource,
+		directoryservices.NewListResource,
+		docker_config.NewListResource,
+		failover_config.NewListResource,
+		ftp_config.NewListResource,
+		iscsi_global.NewListResource,
+		kerberos_config.NewListResource,
+		lxc_config.NewListResource,
+		mail.NewListResource,
+		network_config.NewListResource,
+		nfs_config.NewListResource,
 	}
 }
 

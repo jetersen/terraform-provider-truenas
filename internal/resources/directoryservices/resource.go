@@ -12,10 +12,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 var _ resource.Resource = &DirectoryServicesResource{}
 var _ resource.ResourceWithImportState = &DirectoryServicesResource{}
+var _ resource.ResourceWithIdentity = &DirectoryServicesResource{}
 
 // dsStatusPollInterval is the interval between directoryservices.status
 // polls after an enabling update. It's a package variable (not a const) so
@@ -42,6 +44,10 @@ func (r *DirectoryServicesResource) Metadata(_ context.Context, req resource.Met
 
 func (r *DirectoryServicesResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+func (r *DirectoryServicesResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.StringIDIdentitySchema()
 }
 
 func (r *DirectoryServicesResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -245,6 +251,7 @@ func (r *DirectoryServicesResource) Create(ctx context.Context, req resource.Cre
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, directoryServicesResourceID)...)
 	// Always persist state once the update job itself has succeeded, even if
 	// the health poll below fails: the join already happened on the domain
 	// (computer account, DNS records, ...), so Terraform must keep tracking
@@ -277,6 +284,7 @@ func (r *DirectoryServicesResource) Read(ctx context.Context, req resource.ReadR
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, directoryServicesResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -344,6 +352,7 @@ func (r *DirectoryServicesResource) Update(ctx context.Context, req resource.Upd
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, directoryServicesResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 
 	if plan.Enable.ValueBool() {
@@ -375,4 +384,5 @@ func (r *DirectoryServicesResource) ImportState(ctx context.Context, req resourc
 	// directly from directoryservices.config. "credential" is left unset:
 	// it is write-only and was never held by TrueNAS in a readable form.
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), directoryServicesResourceID)...)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, directoryServicesResourceID)...)
 }

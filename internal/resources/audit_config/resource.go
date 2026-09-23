@@ -11,10 +11,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 var _ resource.Resource = &AuditConfigResource{}
 var _ resource.ResourceWithImportState = &AuditConfigResource{}
+var _ resource.ResourceWithIdentity = &AuditConfigResource{}
 
 // AuditConfigResource implements the truenas_audit_config singleton
 // resource.
@@ -29,6 +31,10 @@ func (r *AuditConfigResource) Metadata(_ context.Context, req resource.MetadataR
 
 func (r *AuditConfigResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+func (r *AuditConfigResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.StringIDIdentitySchema()
 }
 
 func (r *AuditConfigResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -90,6 +96,7 @@ func (r *AuditConfigResource) Create(ctx context.Context, req resource.CreateReq
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, auditConfigResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -112,6 +119,7 @@ func (r *AuditConfigResource) Read(ctx context.Context, req resource.ReadRequest
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, auditConfigResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -166,4 +174,5 @@ func (r *AuditConfigResource) ImportState(ctx context.Context, req resource.Impo
 	// other fields are left unset so the subsequent Read call populates them
 	// directly from audit.config.
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), auditConfigResourceID)...)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, auditConfigResourceID)...)
 }

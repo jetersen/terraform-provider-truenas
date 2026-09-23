@@ -11,10 +11,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 var _ resource.Resource = &MailResource{}
 var _ resource.ResourceWithImportState = &MailResource{}
+var _ resource.ResourceWithIdentity = &MailResource{}
 
 // MailResource implements the truenas_mail singleton resource.
 type MailResource struct{ client *client.Client }
@@ -28,6 +30,10 @@ func (r *MailResource) Metadata(_ context.Context, req resource.MetadataRequest,
 
 func (r *MailResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+func (r *MailResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.StringIDIdentitySchema()
 }
 
 func (r *MailResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -102,6 +108,7 @@ func (r *MailResource) Create(ctx context.Context, req resource.CreateRequest, r
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, mailResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -126,6 +133,7 @@ func (r *MailResource) Read(ctx context.Context, req resource.ReadRequest, resp 
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, mailResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -185,4 +193,5 @@ func (r *MailResource) ImportState(ctx context.Context, req resource.ImportState
 	// all other fields are left unset so the subsequent Read call populates
 	// them directly from mail.config.
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), mailResourceID)...)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, mailResourceID)...)
 }

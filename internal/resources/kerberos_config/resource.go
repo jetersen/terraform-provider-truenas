@@ -11,10 +11,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 var _ resource.Resource = &KerberosConfigResource{}
 var _ resource.ResourceWithImportState = &KerberosConfigResource{}
+var _ resource.ResourceWithIdentity = &KerberosConfigResource{}
 
 // KerberosConfigResource implements the truenas_kerberos_config singleton
 // resource.
@@ -29,6 +31,10 @@ func (r *KerberosConfigResource) Metadata(_ context.Context, req resource.Metada
 
 func (r *KerberosConfigResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+func (r *KerberosConfigResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.StringIDIdentitySchema()
 }
 
 func (r *KerberosConfigResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -87,6 +93,7 @@ func (r *KerberosConfigResource) Create(ctx context.Context, req resource.Create
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, kerberosConfigResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -109,6 +116,7 @@ func (r *KerberosConfigResource) Read(ctx context.Context, req resource.ReadRequ
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, kerberosConfigResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -157,4 +165,5 @@ func (r *KerberosConfigResource) ImportState(ctx context.Context, req resource.I
 	// other fields are left unset so the subsequent Read call populates them
 	// directly from kerberos.config.
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), kerberosConfigResourceID)...)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, kerberosConfigResourceID)...)
 }

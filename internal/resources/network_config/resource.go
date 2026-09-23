@@ -11,10 +11,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 var _ resource.Resource = &NetworkConfigResource{}
 var _ resource.ResourceWithImportState = &NetworkConfigResource{}
+var _ resource.ResourceWithIdentity = &NetworkConfigResource{}
 
 // NetworkConfigResource implements the truenas_network_config singleton
 // resource.
@@ -29,6 +31,10 @@ func (r *NetworkConfigResource) Metadata(_ context.Context, req resource.Metadat
 
 func (r *NetworkConfigResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+func (r *NetworkConfigResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.StringIDIdentitySchema()
 }
 
 func (r *NetworkConfigResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -88,6 +94,7 @@ func (r *NetworkConfigResource) Create(ctx context.Context, req resource.CreateR
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, networkConfigResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -111,6 +118,7 @@ func (r *NetworkConfigResource) Read(ctx context.Context, req resource.ReadReque
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, networkConfigResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -159,4 +167,5 @@ func (r *NetworkConfigResource) ImportState(ctx context.Context, req resource.Im
 	// other fields are left unset so the subsequent Read call populates them
 	// directly from network.configuration.config.
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), networkConfigResourceID)...)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, networkConfigResourceID)...)
 }

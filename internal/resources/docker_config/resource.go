@@ -13,10 +13,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 var _ resource.Resource = &DockerConfigResource{}
 var _ resource.ResourceWithImportState = &DockerConfigResource{}
+var _ resource.ResourceWithIdentity = &DockerConfigResource{}
 
 // DockerConfigResource implements the truenas_docker_config singleton
 // resource.
@@ -31,6 +33,10 @@ func (r *DockerConfigResource) Metadata(_ context.Context, req resource.Metadata
 
 func (r *DockerConfigResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+func (r *DockerConfigResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.StringIDIdentitySchema()
 }
 
 func (r *DockerConfigResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -170,6 +176,7 @@ func (r *DockerConfigResource) Create(ctx context.Context, req resource.CreateRe
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, dockerConfigResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -192,6 +199,7 @@ func (r *DockerConfigResource) Read(ctx context.Context, req resource.ReadReques
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, dockerConfigResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -245,4 +253,5 @@ func (r *DockerConfigResource) ImportState(ctx context.Context, req resource.Imp
 	// other fields are left unset so the subsequent Read call populates them
 	// directly from docker.config.
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), dockerConfigResourceID)...)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, dockerConfigResourceID)...)
 }

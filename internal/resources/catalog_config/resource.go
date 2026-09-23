@@ -11,10 +11,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 var _ resource.Resource = &CatalogConfigResource{}
 var _ resource.ResourceWithImportState = &CatalogConfigResource{}
+var _ resource.ResourceWithIdentity = &CatalogConfigResource{}
 
 // CatalogConfigResource implements the truenas_catalog_config singleton
 // resource.
@@ -29,6 +31,10 @@ func (r *CatalogConfigResource) Metadata(_ context.Context, req resource.Metadat
 
 func (r *CatalogConfigResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+func (r *CatalogConfigResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.StringIDIdentitySchema()
 }
 
 func (r *CatalogConfigResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -96,6 +102,7 @@ func (r *CatalogConfigResource) Create(ctx context.Context, req resource.CreateR
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, catalogConfigResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -118,6 +125,7 @@ func (r *CatalogConfigResource) Read(ctx context.Context, req resource.ReadReque
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, catalogConfigResourceID)...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -165,4 +173,5 @@ func (r *CatalogConfigResource) ImportState(ctx context.Context, req resource.Im
 	// other fields are left unset so the subsequent Read call populates them
 	// directly from catalog.config.
 	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), catalogConfigResourceID)...)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, catalogConfigResourceID)...)
 }
