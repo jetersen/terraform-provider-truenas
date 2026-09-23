@@ -433,6 +433,8 @@ func (p *TrueNASProvider) DataSources(_ context.Context) []func() datasource.Dat
 // ListResources returns the provider's list resources (terraform query; Terraform 1.14+).
 func (p *TrueNASProvider) ListResources(_ context.Context) []func() list.ListResource {
 	return []func() list.ListResource{
+		boot_environment.NewListResource,
+		ipmi_lan.NewListResource,
 		user.NewListResource,
 		dataset.NewListResource,
 		ssh_config.NewListResource,

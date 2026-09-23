@@ -11,10 +11,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 var _ resource.Resource = &BootEnvironmentResource{}
 var _ resource.ResourceWithImportState = &BootEnvironmentResource{}
+var _ resource.ResourceWithIdentity = &BootEnvironmentResource{}
 
 // BootEnvironmentResource manages a TrueNAS boot environment via clone.
 type BootEnvironmentResource struct{ client *client.Client }
@@ -28,6 +30,10 @@ func (r *BootEnvironmentResource) Metadata(_ context.Context, req resource.Metad
 
 func (r *BootEnvironmentResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+func (r *BootEnvironmentResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.StringIDIdentitySchema()
 }
 
 func (r *BootEnvironmentResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -123,6 +129,7 @@ func (r *BootEnvironmentResource) Create(ctx context.Context, req resource.Creat
 	responseToModel(api, &plan)
 	// plan.Source already carries the configured value; responseToModel never
 	// touches it, so it is preserved as-is.
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, plan.ID.ValueString())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -147,6 +154,7 @@ func (r *BootEnvironmentResource) Read(ctx context.Context, req resource.ReadReq
 	}
 
 	responseToModel(api, &state)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, state.ID.ValueString())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -231,4 +239,6 @@ func (r *BootEnvironmentResource) Delete(ctx context.Context, req resource.Delet
 
 func (r *BootEnvironmentResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("name"), req, resp)
+	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), req.ID)...)
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, req.ID)...)
 }

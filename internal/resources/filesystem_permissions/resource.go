@@ -10,10 +10,12 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 var _ resource.Resource = &FilesystemPermissionsResource{}
 var _ resource.ResourceWithImportState = &FilesystemPermissionsResource{}
+var _ resource.ResourceWithIdentity = &FilesystemPermissionsResource{}
 
 // FilesystemPermissionsResource implements the
 // truenas_filesystem_permissions resource: a declarative wrapper around
@@ -30,6 +32,15 @@ func (r *FilesystemPermissionsResource) Metadata(_ context.Context, req resource
 
 func (r *FilesystemPermissionsResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+// IdentitySchema is provided for identity-based import even though this
+// resource is NOT listable: filesystem.setperm/stat operate on an arbitrary,
+// caller-supplied filesystem path rather than a TrueNAS-enumerated object,
+// and there is no "list every managed path" query method to back a list
+// resource with (see the task report for the full reasoning).
+func (r *FilesystemPermissionsResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.StringIDIdentitySchema()
 }
 
 func (r *FilesystemPermissionsResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -90,6 +101,7 @@ func (r *FilesystemPermissionsResource) Create(ctx context.Context, req resource
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, plan.ID.ValueString())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -120,6 +132,7 @@ func (r *FilesystemPermissionsResource) Read(ctx context.Context, req resource.R
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, state.ID.ValueString())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -178,5 +191,6 @@ func (r *FilesystemPermissionsResource) ImportState(ctx context.Context, req res
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, state.ID.ValueString())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }

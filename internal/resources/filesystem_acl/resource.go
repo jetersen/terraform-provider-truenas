@@ -11,10 +11,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
+	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
 
 var _ resource.Resource = &FilesystemAclResource{}
 var _ resource.ResourceWithImportState = &FilesystemAclResource{}
+var _ resource.ResourceWithIdentity = &FilesystemAclResource{}
 
 // FilesystemAclResource implements the truenas_filesystem_acl resource: a
 // declarative wrapper around the imperative filesystem.setacl action,
@@ -31,6 +33,15 @@ func (r *FilesystemAclResource) Metadata(_ context.Context, req resource.Metadat
 
 func (r *FilesystemAclResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = resourceSchema()
+}
+
+// IdentitySchema is provided for identity-based import even though this
+// resource is NOT listable: filesystem.getacl/setacl operate on an
+// arbitrary, caller-supplied filesystem path rather than a TrueNAS-enumerated
+// object, and there is no "list every ACL-managed path" query method to back
+// a list resource with (see the task report for the full reasoning).
+func (r *FilesystemAclResource) IdentitySchema(_ context.Context, _ resource.IdentitySchemaRequest, resp *resource.IdentitySchemaResponse) {
+	resp.IdentitySchema = listing.StringIDIdentitySchema()
 }
 
 func (r *FilesystemAclResource) Configure(_ context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -88,6 +99,7 @@ func (r *FilesystemAclResource) Create(ctx context.Context, req resource.CreateR
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, plan.ID.ValueString())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -133,6 +145,7 @@ func (r *FilesystemAclResource) Read(ctx context.Context, req resource.ReadReque
 		state.Entries = types.StringValue(entriesJSON)
 	}
 
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, state.ID.ValueString())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
 
@@ -213,5 +226,6 @@ func (r *FilesystemAclResource) ImportState(ctx context.Context, req resource.Im
 	}
 	state.Entries = types.StringValue(entriesJSON)
 
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, state.ID.ValueString())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }
