@@ -448,6 +448,18 @@ func (p *TrueNASProvider) ListResources(_ context.Context) []func() list.ListRes
 		periodic_snapshot.NewListResource,
 		scrub_task.NewListResource,
 		tunable.NewListResource,
+		iscsi_auth.NewListResource,
+		iscsi_extent.NewListResource,
+		iscsi_initiator.NewListResource,
+		iscsi_portal.NewListResource,
+		iscsi_target.NewListResource,
+		iscsi_targetextent.NewListResource,
+		nvmet_host.NewListResource,
+		nvmet_host_subsys.NewListResource,
+		nvmet_namespace.NewListResource,
+		nvmet_port.NewListResource,
+		nvmet_port_subsys.NewListResource,
+		nvmet_subsys.NewListResource,
 	}
 }
 
