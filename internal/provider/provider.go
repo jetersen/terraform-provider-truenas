@@ -23,6 +23,11 @@ import (
 	"github.com/truenas/terraform-provider-truenas/internal/actions/replication_run"
 	"github.com/truenas/terraform-provider-truenas/internal/actions/scrub_run"
 	"github.com/truenas/terraform-provider-truenas/internal/actions/service_control"
+	"github.com/truenas/terraform-provider-truenas/internal/actions/snapshot_clone"
+	"github.com/truenas/terraform-provider-truenas/internal/actions/snapshot_hold"
+	"github.com/truenas/terraform-provider-truenas/internal/actions/snapshot_release"
+	"github.com/truenas/terraform-provider-truenas/internal/actions/snapshot_rename"
+	"github.com/truenas/terraform-provider-truenas/internal/actions/snapshot_rollback"
 	"github.com/truenas/terraform-provider-truenas/internal/actions/snapshot_task_run"
 	"github.com/truenas/terraform-provider-truenas/internal/actions/ui_restart"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
@@ -455,6 +460,11 @@ func (p *TrueNASProvider) Actions(_ context.Context) []func() action.Action {
 		replication_run.New,
 		scrub_run.New,
 		service_control.New,
+		snapshot_clone.New,
+		snapshot_hold.New,
+		snapshot_release.New,
+		snapshot_rename.New,
+		snapshot_rollback.New,
 		snapshot_task_run.New,
 		ui_restart.New,
 	}

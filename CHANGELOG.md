@@ -7,6 +7,12 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [Unreleased]
 
 ### Added
+- Five snapshot **Terraform Actions** (Terraform 1.14+) covering the
+  `pool.snapshot.*` operations the provider didn't expose:
+  `truenas_snapshot_rollback` (revert a dataset to a snapshot),
+  `truenas_snapshot_clone` (clone a snapshot into a new dataset),
+  `truenas_snapshot_hold` / `truenas_snapshot_release` (deletion holds), and
+  `truenas_snapshot_rename`. Live-verified against the API on TrueNAS 25.10.3.1.
 - `truenas_pool`: `deduplication` and `checksum` — set the pool's root-dataset
   ZFS properties at creation (also on the data source). `pool.query` returns
   null for them, so they are read back source-aware from the pool's root dataset
