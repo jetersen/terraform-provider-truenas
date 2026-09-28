@@ -70,7 +70,7 @@ func (d *ReplicationDataSource) Schema(_ context.Context, _ datasource.SchemaReq
 			"readonly":         dschema.StringAttribute{Computed: true},
 			"enabled":          dschema.BoolAttribute{Computed: true},
 			"retries":          dschema.Int64Attribute{Computed: true},
-			// Send-stream / behaviour options (GH coverage audit).
+			// Send-stream / behaviour options (coverage audit).
 			"compressed":             dschema.BoolAttribute{Computed: true},
 			"embed":                  dschema.BoolAttribute{Computed: true},
 			"large_block":            dschema.BoolAttribute{Computed: true},

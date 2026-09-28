@@ -27,7 +27,7 @@ type DatasetModel struct {
 	Reservation types.Int64  `tfsdk:"reservation"`
 	VolSize     types.Int64  `tfsdk:"volsize"`
 
-	// Source-aware ZFS tuning properties (GH-16). Each reads back null when the
+	// Source-aware ZFS tuning properties (coverage audit). Each reads back null when the
 	// property is inherited/default rather than set on this dataset, so an
 	// inherited value is never carried into state and re-sent. Enum names match
 	// the ZFS property; sync/dedup match truenas_zvol's existing attributes.
@@ -88,7 +88,7 @@ func (m *DatasetModel) apiPayload() map[string]any {
 		p["volsize"] = m.VolSize.ValueInt64()
 	}
 
-	// Source-aware ZFS tuning properties (GH-16). Only sent when set in config
+	// Source-aware ZFS tuning properties (coverage audit). Only sent when set in config
 	// or carried LOCAL in state; an inherited property reads back null (see
 	// responseToModel), so it never reaches the payload and an apply cannot
 	// convert an inherited property into a local one.
@@ -155,7 +155,7 @@ type apiResponse struct {
 		Parsed int64 `json:"parsed"` // 0 for FILESYSTEM datasets
 	} `json:"volsize"`
 
-	// Source-aware ZFS tuning properties (GH-16). Each carries "source" so an
+	// Source-aware ZFS tuning properties (coverage audit). Each carries "source" so an
 	// inherited value can be told from a locally-set one; see zfsprops.go.
 	ACLModeP    zfsSourced `json:"aclmode"`
 	ATimeP      zfsSourced `json:"atime"`

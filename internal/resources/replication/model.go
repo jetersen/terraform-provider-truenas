@@ -65,7 +65,7 @@ type ReplicationModel struct {
 	Enabled                         types.Bool   `tfsdk:"enabled"`
 	Retries                         types.Int64  `tfsdk:"retries"`
 
-	// Send-stream / behaviour options (GH coverage audit).
+	// Send-stream / behaviour options (coverage audit).
 	Compressed           types.Bool   `tfsdk:"compressed"`  // zfs send -c
 	Embed                types.Bool   `tfsdk:"embed"`       // zfs send -e
 	LargeBlock           types.Bool   `tfsdk:"large_block"` // zfs send -L
@@ -122,7 +122,7 @@ type replicationAPI struct {
 	Enabled         bool    `json:"enabled"`
 	Retries         int64   `json:"retries"`
 
-	// Send-stream / behaviour options (GH coverage audit).
+	// Send-stream / behaviour options (coverage audit).
 	Compressed           bool     `json:"compressed"`
 	Embed                bool     `json:"embed"`
 	LargeBlock           bool     `json:"large_block"`
@@ -301,7 +301,7 @@ func responseToModel(ctx context.Context, api *replicationAPI, m *ReplicationMod
 	m.Enabled = types.BoolValue(api.Enabled)
 	m.Retries = types.Int64Value(api.Retries)
 
-	// Send-stream / behaviour options (GH coverage audit).
+	// Send-stream / behaviour options (coverage audit).
 	m.Compressed = types.BoolValue(api.Compressed)
 	m.Embed = types.BoolValue(api.Embed)
 	m.LargeBlock = types.BoolValue(api.LargeBlock)
@@ -393,7 +393,7 @@ func (m *ReplicationModel) apiPayload(ctx context.Context) (map[string]any, diag
 		p["retries"] = m.Retries.ValueInt64()
 	}
 
-	// Send-stream / behaviour options (GH coverage audit): Optional+Computed,
+	// Send-stream / behaviour options (coverage audit): Optional+Computed,
 	// sent only when set (same reasoning as the scalars above).
 	if !m.Compressed.IsNull() && !m.Compressed.IsUnknown() {
 		p["compressed"] = m.Compressed.ValueBool()

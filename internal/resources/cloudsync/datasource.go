@@ -49,7 +49,7 @@ func (d *CloudSyncDataSource) Schema(_ context.Context, _ datasource.SchemaReque
 			},
 			"enabled":  dschema.BoolAttribute{Computed: true},
 			"snapshot": dschema.BoolAttribute{Computed: true},
-			// Transfer options (GH coverage audit).
+			// Transfer options (coverage audit).
 			"transfers":             dschema.Int64Attribute{Computed: true},
 			"follow_symlinks":       dschema.BoolAttribute{Computed: true},
 			"create_empty_src_dirs": dschema.BoolAttribute{Computed: true},

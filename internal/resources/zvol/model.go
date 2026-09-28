@@ -23,7 +23,7 @@ type ZvolModel struct {
 	Pool         types.String `tfsdk:"pool"`
 	Encrypted    types.Bool   `tfsdk:"encrypted"`
 
-	// Source-aware ZFS tuning properties applicable to volumes (GH-16). Each
+	// Source-aware ZFS tuning properties applicable to volumes (coverage audit). Each
 	// reads back null when inherited/default rather than set LOCAL, so an
 	// inherited value is never carried into state and re-sent. See zfsprops.go.
 	Checksum              types.String `tfsdk:"checksum"`
@@ -61,7 +61,7 @@ type zvolAPI struct {
 		Parsed int64 `json:"parsed"`
 	} `json:"volblocksize"`
 
-	// Source-aware ZFS tuning properties (GH-16); see zfsprops.go.
+	// Source-aware ZFS tuning properties (coverage audit); see zfsprops.go.
 	ChecksumP  zfsSourced `json:"checksum"`
 	ReadOnlyP  zfsSourced `json:"readonly"`
 	SnapdevP   zfsSourced `json:"snapdev"`
@@ -103,7 +103,7 @@ func (m *ZvolModel) apiPayload() map[string]any {
 		p["comments"] = m.Comments.ValueString()
 	}
 
-	// Source-aware ZFS tuning properties (GH-16). Only sent when set; an
+	// Source-aware ZFS tuning properties (coverage audit). Only sent when set; an
 	// inherited property reads back null so it never reaches the payload.
 	putEnum(p, "checksum", m.Checksum)
 	putEnum(p, "readonly", m.ReadOnly)
@@ -130,7 +130,7 @@ func responseToModel(api *zvolAPI, m *ZvolModel) {
 	m.Comments = types.StringValue(api.UserProperties.Comments.Value)
 	// Sparse is write-only (not in API response); preserve plan/state value.
 
-	// Source-aware ZFS tuning properties (GH-16): recorded only when set LOCAL.
+	// Source-aware ZFS tuning properties (coverage audit): recorded only when set LOCAL.
 	m.Checksum = localString(api.ChecksumP)
 	m.ReadOnly = localString(api.ReadOnlyP)
 	m.Snapdev = localString(api.SnapdevP)

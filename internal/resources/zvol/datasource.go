@@ -38,7 +38,7 @@ func (d *ZvolDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, r
 			"dedup":        dschema.StringAttribute{Computed: true},
 			"sparse":       dschema.BoolAttribute{Computed: true},
 			"comments":     dschema.StringAttribute{Computed: true},
-			// Source-aware ZFS tuning properties (GH-16): null when inherited.
+			// Source-aware ZFS tuning properties (coverage audit): null when inherited.
 			"checksum":                 dschema.StringAttribute{Computed: true},
 			"readonly":                 dschema.StringAttribute{Computed: true},
 			"snapdev":                  dschema.StringAttribute{Computed: true},

@@ -247,7 +247,7 @@ func resourceSchema() schema.Schema {
 				},
 			},
 
-			// --- Send-stream / behaviour options (GH coverage audit) ---
+			// --- Send-stream / behaviour options (coverage audit) ---
 			"compressed":             replBoolAttr("Enable compressed ZFS send streams (zfs send -c)."),
 			"embed":                  replBoolAttr("Enable embedded-block ZFS send streams (zfs send -e)."),
 			"large_block":            replBoolAttr("Enable large-block ZFS send streams (zfs send -L)."),

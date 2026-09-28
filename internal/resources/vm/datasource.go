@@ -44,7 +44,7 @@ func (d *VMDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, res
 			"cpu_mode":         dschema.StringAttribute{Computed: true},
 			"cpu_model":        dschema.StringAttribute{Computed: true},
 			"running":          dschema.BoolAttribute{Computed: true},
-			// Hardware / boot / CPU options (GH-16).
+			// Hardware / boot / CPU options (coverage audit).
 			"machine_type":                  dschema.StringAttribute{Computed: true},
 			"arch_type":                     dschema.StringAttribute{Computed: true},
 			"bootloader_ovmf":               dschema.StringAttribute{Computed: true},

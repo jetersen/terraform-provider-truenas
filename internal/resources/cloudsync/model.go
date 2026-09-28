@@ -41,7 +41,7 @@ type CloudSyncModel struct {
 	PreScript    types.String  `tfsdk:"pre_script"`
 	PostScript   types.String  `tfsdk:"post_script"`
 
-	// Transfer options (GH coverage audit).
+	// Transfer options (coverage audit).
 	Transfers          types.Int64 `tfsdk:"transfers"` // null = rclone default
 	FollowSymlinks     types.Bool  `tfsdk:"follow_symlinks"`
 	CreateEmptySrcDirs types.Bool  `tfsdk:"create_empty_src_dirs"`
@@ -75,7 +75,7 @@ type cloudSyncAPI struct {
 	PreScript  string   `json:"pre_script"`
 	PostScript string   `json:"post_script"`
 
-	// Transfer options (GH coverage audit).
+	// Transfer options (coverage audit).
 	Transfers          *int64 `json:"transfers"`
 	FollowSymlinks     bool   `json:"follow_symlinks"`
 	CreateEmptySrcDirs bool   `json:"create_empty_src_dirs"`
@@ -197,7 +197,7 @@ func (m *CloudSyncModel) apiPayload(ctx context.Context) (map[string]any, diag.D
 	if !m.Snapshot.IsNull() && !m.Snapshot.IsUnknown() {
 		p["snapshot"] = m.Snapshot.ValueBool()
 	}
-	// Transfer options (GH coverage audit).
+	// Transfer options (coverage audit).
 	if !m.Transfers.IsNull() && !m.Transfers.IsUnknown() {
 		p["transfers"] = m.Transfers.ValueInt64()
 	}
@@ -245,7 +245,7 @@ func responseToModel(ctx context.Context, api *cloudSyncAPI, m *CloudSyncModel) 
 	m.Enabled = types.BoolValue(api.Enabled)
 	m.Snapshot = types.BoolValue(api.Snapshot)
 
-	// Transfer options (GH coverage audit).
+	// Transfer options (coverage audit).
 	if api.Transfers != nil {
 		m.Transfers = types.Int64Value(*api.Transfers)
 	} else {

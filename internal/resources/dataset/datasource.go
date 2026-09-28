@@ -40,7 +40,7 @@ func (d *DatasetDataSource) Schema(_ context.Context, _ datasource.SchemaRequest
 			"refquota":    dschema.Int64Attribute{Computed: true},
 			"reservation": dschema.Int64Attribute{Computed: true},
 			"volsize":     dschema.Int64Attribute{Computed: true},
-			// Source-aware ZFS tuning properties (GH-16): null when inherited.
+			// Source-aware ZFS tuning properties (coverage audit): null when inherited.
 			"aclmode":                  dschema.StringAttribute{Computed: true},
 			"atime":                    dschema.StringAttribute{Computed: true},
 			"exec":                     dschema.StringAttribute{Computed: true},
@@ -54,8 +54,8 @@ func (d *DatasetDataSource) Schema(_ context.Context, _ datasource.SchemaRequest
 			"special_small_block_size": dschema.Int64Attribute{Computed: true},
 			"refreservation":           dschema.Int64Attribute{Computed: true},
 			"mountpoint":               dschema.StringAttribute{Computed: true},
-			"encrypted":   dschema.BoolAttribute{Computed: true},
-			"pool":        dschema.StringAttribute{Computed: true},
+			"encrypted":                dschema.BoolAttribute{Computed: true},
+			"pool":                     dschema.StringAttribute{Computed: true},
 		},
 	}
 }

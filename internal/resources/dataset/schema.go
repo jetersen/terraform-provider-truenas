@@ -14,7 +14,7 @@ import (
 )
 
 // zfsEnumAttr builds an Optional+Computed string attribute for a source-aware
-// ZFS enum property (GH-16): values are the uppercase ZFS forms, it reads back
+// ZFS enum property (coverage audit): values are the uppercase ZFS forms, it reads back
 // null when the property is inherited/default, and it cannot be reverted to
 // inherited by removing it from config (see zfsprops.go localString).
 func zfsEnumAttr(desc string, values ...string) schema.StringAttribute {
@@ -118,7 +118,7 @@ func resourceSchema() schema.Schema {
 					int64planmodifier.UseStateForUnknown(),
 				},
 			},
-			// --- Source-aware ZFS tuning properties (GH-16) ---
+			// --- Source-aware ZFS tuning properties (coverage audit) ---
 			// Each is Optional+Computed and reads back null when the property is
 			// inherited from the parent or left at its ZFS default (only a value
 			// set LOCAL on this dataset is recorded). Consequence: reverting a

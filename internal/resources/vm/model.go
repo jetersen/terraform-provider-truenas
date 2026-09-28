@@ -23,7 +23,7 @@ type VMModel struct {
 	CPUModel        types.String `tfsdk:"cpu_model"` // "" = unset
 	Running         types.Bool   `tfsdk:"running"`
 
-	// Hardware / boot / CPU options (GH-16). Plain VM settings (not source-
+	// Hardware / boot / CPU options (coverage audit). Plain VM settings (not source-
 	// aware); each is Optional+Computed and read back directly from vm.query.
 	MachineType                types.String `tfsdk:"machine_type"`    // e.g. q35, i440fx
 	ArchType                   types.String `tfsdk:"arch_type"`       // CPU architecture
@@ -67,7 +67,7 @@ type vmAPI struct {
 	CPUModel        *string     `json:"cpu_model"`
 	Status          vmStatusAPI `json:"status"`
 
-	// Hardware / boot / CPU options (GH-16).
+	// Hardware / boot / CPU options (coverage audit).
 	MachineType                *string `json:"machine_type"`
 	ArchType                   *string `json:"arch_type"`
 	BootloaderOVMF             *string `json:"bootloader_ovmf"`
@@ -119,7 +119,7 @@ func responseToModel(api *vmAPI, m *VMModel) {
 	m.Status = types.StringValue(api.Status.State)
 	m.Running = types.BoolValue(api.Status.State == "RUNNING")
 
-	// Hardware / boot / CPU options (GH-16).
+	// Hardware / boot / CPU options (coverage audit).
 	m.MachineType = strOrNull(api.MachineType)
 	m.ArchType = strOrNull(api.ArchType)
 	m.BootloaderOVMF = strOrNull(api.BootloaderOVMF)
@@ -177,7 +177,7 @@ func (m *VMModel) apiPayload() map[string]any {
 		p["min_memory"] = m.MinMemory.ValueInt64()
 	}
 
-	// Hardware / boot / CPU options (GH-16). Strings sent when non-empty;
+	// Hardware / boot / CPU options (coverage audit). Strings sent when non-empty;
 	// bools sent when set (Computed reads the server default back otherwise).
 	putVMStr(p, "machine_type", m.MachineType)
 	putVMStr(p, "arch_type", m.ArchType)

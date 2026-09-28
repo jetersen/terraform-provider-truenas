@@ -226,7 +226,7 @@ func (r *DatasetResource) responseToModel(api *apiResponse, m *DatasetModel) dia
 	}
 	m.VolSize = types.Int64Value(api.VolSize.Parsed)
 
-	// Source-aware ZFS tuning properties (GH-16): record a value only when the
+	// Source-aware ZFS tuning properties (coverage audit): record a value only when the
 	// property is set LOCAL on this dataset; inherited/default reads back null.
 	m.ACLMode = localString(api.ACLModeP)
 	m.ATime = localString(api.ATimeP)

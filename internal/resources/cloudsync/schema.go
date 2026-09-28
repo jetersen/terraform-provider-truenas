@@ -71,7 +71,7 @@ func resourceSchema() schema.Schema {
 					boolplanmodifier.UseStateForUnknown(),
 				},
 			},
-			// Transfer options (GH coverage audit).
+			// Transfer options (coverage audit).
 			"transfers": schema.Int64Attribute{
 				Optional:    true,
 				Computed:    true,

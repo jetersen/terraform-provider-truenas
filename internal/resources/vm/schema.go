@@ -126,7 +126,7 @@ func resourceSchema() schema.Schema {
 					boolplanmodifier.UseStateForUnknown(),
 				},
 			},
-			// --- Hardware / boot / CPU options (GH-16) ---
+			// --- Hardware / boot / CPU options (coverage audit) ---
 			"machine_type":                  vmStrAttr("QEMU machine type, e.g. \"q35\" or \"i440fx\". Empty/unset uses the TrueNAS default."),
 			"arch_type":                     vmStrAttr("Guest CPU architecture. Empty/unset uses the host architecture."),
 			"bootloader_ovmf":               vmStrAttr("OVMF firmware image to use (UEFI bootloader). Empty/unset uses the default."),
@@ -150,7 +150,7 @@ func resourceSchema() schema.Schema {
 	}
 }
 
-// vmStrAttr is an Optional+Computed string attribute (GH-16 scalar VM option).
+// vmStrAttr is an Optional+Computed string attribute (coverage audit scalar VM option).
 func vmStrAttr(desc string) schema.StringAttribute {
 	return schema.StringAttribute{
 		Optional:      true,
@@ -160,7 +160,7 @@ func vmStrAttr(desc string) schema.StringAttribute {
 	}
 }
 
-// vmBoolAttr is an Optional+Computed bool attribute (GH-16 scalar VM option).
+// vmBoolAttr is an Optional+Computed bool attribute (coverage audit scalar VM option).
 func vmBoolAttr(desc string) schema.BoolAttribute {
 	return schema.BoolAttribute{
 		Optional:      true,
