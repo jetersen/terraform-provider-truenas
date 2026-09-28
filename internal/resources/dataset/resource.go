@@ -225,6 +225,21 @@ func (r *DatasetResource) responseToModel(api *apiResponse, m *DatasetModel) dia
 		m.Reservation = types.Int64Value(0)
 	}
 	m.VolSize = types.Int64Value(api.VolSize.Parsed)
+
+	// Source-aware ZFS tuning properties (GH-16): record a value only when the
+	// property is set LOCAL on this dataset; inherited/default reads back null.
+	m.ACLMode = localString(api.ACLModeP)
+	m.ATime = localString(api.ATimeP)
+	m.Exec = localString(api.ExecP)
+	m.ReadOnly = localString(api.ReadOnlyP)
+	m.Sync = localString(api.SyncP)
+	m.Checksum = localString(api.ChecksumP)
+	m.Snapdir = localString(api.SnapdirP)
+	m.Dedup = localString(api.DedupP)
+	m.RecordSize = localString(api.RecordSizeP)
+	m.Copies = localInt(api.CopiesP)
+	m.SpecialSmallBlockSize = localInt(api.SSBSP)
+	m.RefReservation = localInt(api.RefResP)
 	return nil
 }
 

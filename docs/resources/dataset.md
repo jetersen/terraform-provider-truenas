@@ -53,13 +53,25 @@ resource "truenas_dataset" "media" {
 
 ### Optional
 
+- `aclmode` (String) ACL inheritance mode: PASSTHROUGH, RESTRICTED, or DISCARD. Null (unset) inherits from the parent.
 - `acltype` (String) ACL type: posix, nfsv4, or off. Case-insensitive.
+- `atime` (String) Update access time on read: ON or OFF. Null inherits.
+- `checksum` (String) Checksum algorithm: ON, OFF, FLETCHER2, FLETCHER4, SHA256, SHA512, SKEIN, EDONR, or BLAKE3. Null inherits.
 - `comments` (String) Human-readable description stored as org.freenas:description.
 - `compression` (String) Compression algorithm. Case-insensitive: lz4, zstd, off, etc.
+- `copies` (Number) Number of copies of each block (1-3). Null (unset) inherits from the parent.
+- `dedup` (String) Deduplication (the ZFS `deduplication` property): ON, VERIFY, or OFF. Null inherits. Named `dedup` to match truenas_zvol.
+- `exec` (String) Allow executing files: ON or OFF. Null inherits.
 - `quota` (Number) Quota in bytes (0 = unlimited).
+- `readonly` (String) Mount read-only: ON or OFF. Null inherits.
+- `recordsize` (String) Suggested block size for files, e.g. "128K" or "1M". Null (unset) inherits from the parent. Use the ZFS form (uppercase suffix) to avoid drift.
 - `refquota` (Number) Referenced quota in bytes (0 = unlimited).
+- `refreservation` (Number) Referenced reservation in bytes (space guaranteed to this dataset, excluding descendants/snapshots). Null (unset) inherits.
 - `reservation` (Number) Reserved space in bytes.
 - `share_type` (String) Optimised share type: UNIX or WINDOWS (write-only, not returned by API).
+- `snapdir` (String) Visibility of the .zfs/snapshot directory: VISIBLE, HIDDEN, or DISABLED. Null inherits.
+- `special_small_block_size` (Number) Threshold in bytes below which blocks are written to a pool's special allocation-class vdev; 0 disables it. Null (unset) inherits from the parent.
+- `sync` (String) Sync write behaviour: STANDARD, ALWAYS, or DISABLED. Null inherits.
 - `type` (String) Dataset type: FILESYSTEM (default) or VOLUME. Case-insensitive.
 - `volsize` (Number) Volume size in bytes. Required for type=VOLUME.
 

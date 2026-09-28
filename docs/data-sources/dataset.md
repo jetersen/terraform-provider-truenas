@@ -21,16 +21,28 @@ Fetches a TrueNAS dataset by name.
 
 ### Read-Only
 
+- `aclmode` (String)
 - `acltype` (String)
+- `atime` (String)
+- `checksum` (String)
 - `comments` (String)
 - `compression` (String)
+- `copies` (Number)
+- `dedup` (String)
 - `encrypted` (Boolean)
+- `exec` (String)
 - `id` (String) The ID of this resource.
 - `mountpoint` (String)
 - `pool` (String)
 - `quota` (Number)
+- `readonly` (String)
+- `recordsize` (String)
 - `refquota` (Number)
+- `refreservation` (Number)
 - `reservation` (Number)
 - `share_type` (String)
+- `snapdir` (String)
+- `special_small_block_size` (Number)
+- `sync` (String)
 - `type` (String)
 - `volsize` (Number)

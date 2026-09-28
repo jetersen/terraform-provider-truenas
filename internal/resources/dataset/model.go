@@ -27,6 +27,24 @@ type DatasetModel struct {
 	Reservation types.Int64  `tfsdk:"reservation"`
 	VolSize     types.Int64  `tfsdk:"volsize"`
 
+	// Source-aware ZFS tuning properties (GH-16). Each reads back null when the
+	// property is inherited/default rather than set on this dataset, so an
+	// inherited value is never carried into state and re-sent. Enum names match
+	// the ZFS property; sync/dedup match truenas_zvol's existing attributes.
+	// See zfsprops.go (localString/localInt).
+	ACLMode               types.String `tfsdk:"aclmode"`
+	ATime                 types.String `tfsdk:"atime"`
+	Exec                  types.String `tfsdk:"exec"`
+	ReadOnly              types.String `tfsdk:"readonly"`
+	Sync                  types.String `tfsdk:"sync"`
+	Checksum              types.String `tfsdk:"checksum"`
+	Snapdir               types.String `tfsdk:"snapdir"`
+	Dedup                 types.String `tfsdk:"dedup"` // API field "deduplication"
+	RecordSize            types.String `tfsdk:"recordsize"`
+	Copies                types.Int64  `tfsdk:"copies"`
+	SpecialSmallBlockSize types.Int64  `tfsdk:"special_small_block_size"`
+	RefReservation        types.Int64  `tfsdk:"refreservation"`
+
 	// Computed
 	MountPoint types.String `tfsdk:"mountpoint"`
 	Encrypted  types.Bool   `tfsdk:"encrypted"`
@@ -69,6 +87,23 @@ func (m *DatasetModel) apiPayload() map[string]any {
 	if !m.VolSize.IsNull() && !m.VolSize.IsUnknown() && m.VolSize.ValueInt64() != 0 {
 		p["volsize"] = m.VolSize.ValueInt64()
 	}
+
+	// Source-aware ZFS tuning properties (GH-16). Only sent when set in config
+	// or carried LOCAL in state; an inherited property reads back null (see
+	// responseToModel), so it never reaches the payload and an apply cannot
+	// convert an inherited property into a local one.
+	putEnum(p, "aclmode", m.ACLMode)
+	putEnum(p, "atime", m.ATime)
+	putEnum(p, "exec", m.Exec)
+	putEnum(p, "readonly", m.ReadOnly)
+	putEnum(p, "sync", m.Sync)
+	putEnum(p, "checksum", m.Checksum)
+	putEnum(p, "snapdir", m.Snapdir)
+	putEnum(p, "deduplication", m.Dedup)
+	putStr(p, "recordsize", m.RecordSize)
+	putInt(p, "copies", m.Copies)
+	putInt(p, "special_small_block_size", m.SpecialSmallBlockSize)
+	putInt(p, "refreservation", m.RefReservation)
 	return p
 }
 
@@ -119,6 +154,21 @@ type apiResponse struct {
 	VolSize struct {
 		Parsed int64 `json:"parsed"` // 0 for FILESYSTEM datasets
 	} `json:"volsize"`
+
+	// Source-aware ZFS tuning properties (GH-16). Each carries "source" so an
+	// inherited value can be told from a locally-set one; see zfsprops.go.
+	ACLModeP    zfsSourced `json:"aclmode"`
+	ATimeP      zfsSourced `json:"atime"`
+	ExecP       zfsSourced `json:"exec"`
+	ReadOnlyP   zfsSourced `json:"readonly"`
+	SyncP       zfsSourced `json:"sync"`
+	ChecksumP   zfsSourced `json:"checksum"`
+	SnapdirP    zfsSourced `json:"snapdir"`
+	DedupP      zfsSourced `json:"deduplication"`
+	RecordSizeP zfsSourced `json:"recordsize"`
+	CopiesP     zfsSourced `json:"copies"`
+	SSBSP       zfsSourced `json:"special_small_block_size"`
+	RefResP     zfsSourced `json:"refreservation"`
 
 	// Comments live under user_properties in TrueNAS 24+
 	UserProperties struct {

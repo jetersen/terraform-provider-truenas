@@ -6,6 +6,19 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+- `truenas_dataset`: twelve ZFS tuning properties — `aclmode`, `atime`, `exec`,
+  `readonly`, `sync`, `checksum`, `snapdir`, `dedup`, `recordsize`, `copies`,
+  `special_small_block_size`, and `refreservation` (also exposed as computed
+  attributes on the data source). Each is source-aware: it reads back null when
+  the property is inherited from the parent or left at its ZFS default, so an
+  inherited value is never written into state and re-sent, and an apply cannot
+  silently convert an inherited property into a local one. (`sync`/`dedup` match
+  the existing `truenas_zvol` attribute names.) Note: because an inherited
+  property reads back as unset, reverting a locally-set value to inherited
+  cannot be expressed by removing it from the configuration — change it out of
+  band and refresh. (GH-16)
+
 ## [1.2.1] - 2026-09-28
 
 ### Added
