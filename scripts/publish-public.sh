@@ -28,6 +28,7 @@ EXCLUDE=(
   scripts/publish-public.sh
   scripts/scrub-public-testing.py
   docs-dev/registry-publish-runbook.md
+  docs-dev/api-coverage-gaps.md
 )
 
 # --- guards ---------------------------------------------------------------
