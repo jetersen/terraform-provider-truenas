@@ -22,6 +22,17 @@ type ZvolModel struct {
 	Comments     types.String `tfsdk:"comments"`
 	Pool         types.String `tfsdk:"pool"`
 	Encrypted    types.Bool   `tfsdk:"encrypted"`
+
+	// Source-aware ZFS tuning properties applicable to volumes (GH-16). Each
+	// reads back null when inherited/default rather than set LOCAL, so an
+	// inherited value is never carried into state and re-sent. See zfsprops.go.
+	Checksum              types.String `tfsdk:"checksum"`
+	ReadOnly              types.String `tfsdk:"readonly"`
+	Snapdev               types.String `tfsdk:"snapdev"`
+	Copies                types.Int64  `tfsdk:"copies"`
+	SpecialSmallBlockSize types.Int64  `tfsdk:"special_small_block_size"`
+	Reservation           types.Int64  `tfsdk:"reservation"`
+	RefReservation        types.Int64  `tfsdk:"refreservation"`
 }
 
 // zvolAPI matches the flat JSON structure returned by pool.dataset.get_instance for zvols.
@@ -49,6 +60,15 @@ type zvolAPI struct {
 	VolBlockSize struct {
 		Parsed int64 `json:"parsed"`
 	} `json:"volblocksize"`
+
+	// Source-aware ZFS tuning properties (GH-16); see zfsprops.go.
+	ChecksumP  zfsSourced `json:"checksum"`
+	ReadOnlyP  zfsSourced `json:"readonly"`
+	SnapdevP   zfsSourced `json:"snapdev"`
+	CopiesP    zfsSourced `json:"copies"`
+	SSBSP      zfsSourced `json:"special_small_block_size"`
+	ReservP    zfsSourced `json:"reservation"`
+	RefReservP zfsSourced `json:"refreservation"`
 
 	UserProperties struct {
 		Comments struct {
@@ -82,6 +102,16 @@ func (m *ZvolModel) apiPayload() map[string]any {
 	if !m.Comments.IsNull() && !m.Comments.IsUnknown() {
 		p["comments"] = m.Comments.ValueString()
 	}
+
+	// Source-aware ZFS tuning properties (GH-16). Only sent when set; an
+	// inherited property reads back null so it never reaches the payload.
+	putEnum(p, "checksum", m.Checksum)
+	putEnum(p, "readonly", m.ReadOnly)
+	putEnum(p, "snapdev", m.Snapdev)
+	putInt(p, "copies", m.Copies)
+	putInt(p, "special_small_block_size", m.SpecialSmallBlockSize)
+	putInt(p, "reservation", m.Reservation)
+	putInt(p, "refreservation", m.RefReservation)
 	return p
 }
 
@@ -99,6 +129,15 @@ func responseToModel(api *zvolAPI, m *ZvolModel) {
 	m.Dedup = preserveCase(m.Dedup, api.Dedup.Parsed)
 	m.Comments = types.StringValue(api.UserProperties.Comments.Value)
 	// Sparse is write-only (not in API response); preserve plan/state value.
+
+	// Source-aware ZFS tuning properties (GH-16): recorded only when set LOCAL.
+	m.Checksum = localString(api.ChecksumP)
+	m.ReadOnly = localString(api.ReadOnlyP)
+	m.Snapdev = localString(api.SnapdevP)
+	m.Copies = localInt(api.CopiesP)
+	m.SpecialSmallBlockSize = localInt(api.SSBSP)
+	m.Reservation = localInt(api.ReservP)
+	m.RefReservation = localInt(api.RefReservP)
 }
 
 // preserveCase returns current if it matches apiVal case-insensitively (preserving

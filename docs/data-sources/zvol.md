@@ -21,13 +21,20 @@ Fetches a TrueNAS zvol by name.
 
 ### Read-Only
 
+- `checksum` (String)
 - `comments` (String)
 - `compression` (String)
+- `copies` (Number)
 - `dedup` (String)
 - `encrypted` (Boolean)
 - `id` (String) The ID of this resource.
 - `pool` (String)
+- `readonly` (String)
+- `refreservation` (Number)
+- `reservation` (Number)
+- `snapdev` (String)
 - `sparse` (Boolean)
+- `special_small_block_size` (Number)
 - `sync` (String)
 - `volblocksize` (Number)
 - `volsize` (Number)

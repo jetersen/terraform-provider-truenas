@@ -7,6 +7,12 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [Unreleased]
 
 ### Added
+- `truenas_zvol`: seven ZFS tuning properties applicable to volumes —
+  `checksum`, `readonly`, `snapdev`, `copies`, `special_small_block_size`,
+  `reservation`, and `refreservation` (also on the data source), using the same
+  source-aware read as `truenas_dataset` (null when inherited/default).
+  Filesystem-only properties (recordsize, atime, exec, snapdir, aclmode, quota)
+  are intentionally excluded — they do not apply to a block device. (GH-16)
 - `truenas_dataset`: twelve ZFS tuning properties — `aclmode`, `atime`, `exec`,
   `readonly`, `sync`, `checksum`, `snapdir`, `dedup`, `recordsize`, `copies`,
   `special_small_block_size`, and `refreservation` (also exposed as computed
