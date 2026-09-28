@@ -29,6 +29,7 @@ SUBCATEGORY = {
     # Sharing
     "nfs_share": "Sharing",
     "smb_share": "Sharing",
+    "smb_share_acl": "Sharing",
     "webshare": "Sharing",
     "nfs_config": "Sharing",
     "smb_config": "Sharing",

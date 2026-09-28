@@ -7,6 +7,17 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [Unreleased]
 
 ### Added
+- `truenas_smb_share_acl`: new resource (and matching data source) managing an
+  SMB share's share-level ACL via `sharing.smb.setacl` / `getacl`, keyed by
+  `share_name`. Each entry sets `ae_perm` (FULL/CHANGE/READ), `ae_type`
+  (ALLOWED/DENIED) and one principal selector — `ae_who_sid`, `ae_who_id`
+  (`{id_type, id}`), or `ae_who_str`. Follows the same write-what-you-said
+  modeling as `truenas_filesystem_acl` (the server resolves the other principal
+  selectors on write, but only what you configured is kept in state, so there is
+  no spurious drift). `terraform destroy` resets the share ACL to the TrueNAS
+  default (`everyone@ FULL ALLOWED`) with a warning, since a share always has a
+  share ACL. This closes the last SMB API coverage gap — share-level ACLs were
+  previously unmanageable by the provider.
 - `truenas_smb_share`: a typed `options` object exposing the full
   purpose-specific SMB settings (the discriminated `options` union on TrueNAS
   26.0+/27.0), for **every** purpose — e.g. `TIMEMACHINE_SHARE`'s
