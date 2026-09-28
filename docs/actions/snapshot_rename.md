@@ -22,5 +22,5 @@ Renames a snapshot (pool.snapshot.rename).
 
 ### Optional
 
-- `force` (Boolean) Force the rename.
+- `force` (Boolean) Force the rename. Only used on TrueNAS < 26.0 (pool.snapshot.rename); ignored on 26.0+ where zfs.resource.snapshot.rename is used.
 - `recursive` (Boolean) Also rename the equivalent snapshot on descendant datasets.

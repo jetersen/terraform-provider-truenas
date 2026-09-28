@@ -47,7 +47,7 @@ func (a *Action) Schema(_ context.Context, _ action.SchemaRequest, resp *action.
 			},
 			"force": schema.BoolAttribute{
 				Optional:    true,
-				Description: "Force the rename.",
+				Description: "Force the rename. Only used on TrueNAS < 26.0 (pool.snapshot.rename); ignored on 26.0+ where zfs.resource.snapshot.rename is used.",
 			},
 			"recursive": schema.BoolAttribute{
 				Optional:    true,
@@ -75,12 +75,32 @@ func (a *Action) Invoke(ctx context.Context, req action.InvokeRequest, resp *act
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	// The API requires new_name as a full "<dataset>@<name>"; build it from the
+	// Both APIs require new_name as a full "<dataset>@<name>"; build it from the
 	// source snapshot's dataset and the user-supplied new name.
 	newName := cfg.NewName.ValueString()
 	if dataset, _, ok := strings.Cut(cfg.Snapshot.ValueString(), "@"); ok && !strings.Contains(newName, "@") {
 		newName = dataset + "@" + newName
 	}
+
+	// Version routing: TrueNAS 26.0+ deprecates pool.snapshot.rename in favour
+	// of zfs.resource.snapshot.rename (verified live: 27.0 rejects the old one
+	// with "Use zfs.resource.snapshot.rename"). The new method takes
+	// {current_name, new_name, recursive} and needs no force; the old one takes
+	// (id, {new_name, force, recursive}).
+	if ok, verr := a.client.VersionAtLeast(ctx, 26, 0); verr == nil && ok {
+		opts := map[string]any{
+			"current_name": cfg.Snapshot.ValueString(),
+			"new_name":     newName,
+		}
+		if !cfg.Recursive.IsNull() && !cfg.Recursive.IsUnknown() {
+			opts["recursive"] = cfg.Recursive.ValueBool()
+		}
+		if _, err := a.client.Call(ctx, "zfs.resource.snapshot.rename", opts); err != nil {
+			resp.Diagnostics.AddError("Snapshot rename failed", err.Error())
+		}
+		return
+	}
+
 	opts := map[string]any{"new_name": newName}
 	if !cfg.Force.IsNull() && !cfg.Force.IsUnknown() {
 		opts["force"] = cfg.Force.ValueBool()
