@@ -7,6 +7,15 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [Unreleased]
 
 ### Added
+- `truenas_vm`: thirteen hardware/boot/CPU options — `machine_type`,
+  `arch_type`, `bootloader_ovmf`, `command_line_args`, `cpuset`, `nodeset`,
+  `enable_secure_boot`, `trusted_platform_module`, `pin_vcpus`, `hide_from_msr`,
+  `hyperv_enlightenments`, `enable_cpu_topology_extension`, and
+  `suspend_on_snapshot` (also on the data source). These are plain
+  Optional+Computed settings. TrueNAS enforces cross-field rules server-side
+  (e.g. `arch_type` is required with `machine_type`; `enable_secure_boot` needs
+  a compatible `machine_type`; `cpuset` must cover the vCPU count for
+  `pin_vcpus`), surfaced as apply-time errors. (GH-16)
 - `truenas_zvol`: seven ZFS tuning properties applicable to volumes —
   `checksum`, `readonly`, `snapdev`, `copies`, `special_small_block_size`,
   `reservation`, and `refreservation` (also on the data source), using the same

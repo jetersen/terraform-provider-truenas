@@ -22,6 +22,23 @@ type VMModel struct {
 	CPUMode         types.String `tfsdk:"cpu_mode"`  // CUSTOM, HOST-MODEL, HOST-PASSTHROUGH
 	CPUModel        types.String `tfsdk:"cpu_model"` // "" = unset
 	Running         types.Bool   `tfsdk:"running"`
+
+	// Hardware / boot / CPU options (GH-16). Plain VM settings (not source-
+	// aware); each is Optional+Computed and read back directly from vm.query.
+	MachineType                types.String `tfsdk:"machine_type"`    // e.g. q35, i440fx
+	ArchType                   types.String `tfsdk:"arch_type"`       // CPU architecture
+	BootloaderOVMF             types.String `tfsdk:"bootloader_ovmf"` // OVMF firmware image
+	CommandLineArgs            types.String `tfsdk:"command_line_args"`
+	CPUSet                     types.String `tfsdk:"cpuset"`  // pinned physical CPUs, e.g. "0-3"
+	NodeSet                    types.String `tfsdk:"nodeset"` // pinned NUMA nodes
+	EnableSecureBoot           types.Bool   `tfsdk:"enable_secure_boot"`
+	TrustedPlatformModule      types.Bool   `tfsdk:"trusted_platform_module"`
+	PinVCPUs                   types.Bool   `tfsdk:"pin_vcpus"`
+	HideFromMSR                types.Bool   `tfsdk:"hide_from_msr"`
+	HypervEnlightenments       types.Bool   `tfsdk:"hyperv_enlightenments"`
+	EnableCPUTopologyExtension types.Bool   `tfsdk:"enable_cpu_topology_extension"`
+	SuspendOnSnapshot          types.Bool   `tfsdk:"suspend_on_snapshot"`
+
 	// Computed only
 	Status types.String `tfsdk:"status"` // RUNNING, STOPPED
 }
@@ -49,6 +66,29 @@ type vmAPI struct {
 	CPUMode         string      `json:"cpu_mode"`
 	CPUModel        *string     `json:"cpu_model"`
 	Status          vmStatusAPI `json:"status"`
+
+	// Hardware / boot / CPU options (GH-16).
+	MachineType                *string `json:"machine_type"`
+	ArchType                   *string `json:"arch_type"`
+	BootloaderOVMF             *string `json:"bootloader_ovmf"`
+	CommandLineArgs            string  `json:"command_line_args"`
+	CPUSet                     *string `json:"cpuset"`
+	NodeSet                    *string `json:"nodeset"`
+	EnableSecureBoot           bool    `json:"enable_secure_boot"`
+	TrustedPlatformModule      bool    `json:"trusted_platform_module"`
+	PinVCPUs                   bool    `json:"pin_vcpus"`
+	HideFromMSR                bool    `json:"hide_from_msr"`
+	HypervEnlightenments       bool    `json:"hyperv_enlightenments"`
+	EnableCPUTopologyExtension bool    `json:"enable_cpu_topology_extension"`
+	SuspendOnSnapshot          bool    `json:"suspend_on_snapshot"`
+}
+
+// strOrNull maps a nullable API string to a Terraform string (nil -> null).
+func strOrNull(p *string) types.String {
+	if p == nil {
+		return types.StringNull()
+	}
+	return types.StringValue(*p)
 }
 
 // responseToModel maps a vmAPI struct into a VMModel. MinMemory nil maps to 0;
@@ -78,6 +118,21 @@ func responseToModel(api *vmAPI, m *VMModel) {
 	}
 	m.Status = types.StringValue(api.Status.State)
 	m.Running = types.BoolValue(api.Status.State == "RUNNING")
+
+	// Hardware / boot / CPU options (GH-16).
+	m.MachineType = strOrNull(api.MachineType)
+	m.ArchType = strOrNull(api.ArchType)
+	m.BootloaderOVMF = strOrNull(api.BootloaderOVMF)
+	m.CommandLineArgs = types.StringValue(api.CommandLineArgs)
+	m.CPUSet = strOrNull(api.CPUSet)
+	m.NodeSet = strOrNull(api.NodeSet)
+	m.EnableSecureBoot = types.BoolValue(api.EnableSecureBoot)
+	m.TrustedPlatformModule = types.BoolValue(api.TrustedPlatformModule)
+	m.PinVCPUs = types.BoolValue(api.PinVCPUs)
+	m.HideFromMSR = types.BoolValue(api.HideFromMSR)
+	m.HypervEnlightenments = types.BoolValue(api.HypervEnlightenments)
+	m.EnableCPUTopologyExtension = types.BoolValue(api.EnableCPUTopologyExtension)
+	m.SuspendOnSnapshot = types.BoolValue(api.SuspendOnSnapshot)
 }
 
 // apiPayload builds the map[string]any payload for vm.create / vm.update.
@@ -121,5 +176,35 @@ func (m *VMModel) apiPayload() map[string]any {
 	if !m.MinMemory.IsNull() && !m.MinMemory.IsUnknown() && m.MinMemory.ValueInt64() != 0 {
 		p["min_memory"] = m.MinMemory.ValueInt64()
 	}
+
+	// Hardware / boot / CPU options (GH-16). Strings sent when non-empty;
+	// bools sent when set (Computed reads the server default back otherwise).
+	putVMStr(p, "machine_type", m.MachineType)
+	putVMStr(p, "arch_type", m.ArchType)
+	putVMStr(p, "bootloader_ovmf", m.BootloaderOVMF)
+	putVMStr(p, "command_line_args", m.CommandLineArgs)
+	putVMStr(p, "cpuset", m.CPUSet)
+	putVMStr(p, "nodeset", m.NodeSet)
+	putVMBool(p, "enable_secure_boot", m.EnableSecureBoot)
+	putVMBool(p, "trusted_platform_module", m.TrustedPlatformModule)
+	putVMBool(p, "pin_vcpus", m.PinVCPUs)
+	putVMBool(p, "hide_from_msr", m.HideFromMSR)
+	putVMBool(p, "hyperv_enlightenments", m.HypervEnlightenments)
+	putVMBool(p, "enable_cpu_topology_extension", m.EnableCPUTopologyExtension)
+	putVMBool(p, "suspend_on_snapshot", m.SuspendOnSnapshot)
 	return p
+}
+
+// putVMStr adds a string field when set and non-empty.
+func putVMStr(p map[string]any, key string, v types.String) {
+	if !v.IsNull() && !v.IsUnknown() && v.ValueString() != "" {
+		p[key] = v.ValueString()
+	}
+}
+
+// putVMBool adds a bool field when set.
+func putVMBool(p map[string]any, key string, v types.Bool) {
+	if !v.IsNull() && !v.IsUnknown() {
+		p[key] = v.ValueBool()
+	}
 }
