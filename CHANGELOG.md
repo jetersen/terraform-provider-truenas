@@ -1,0 +1,303 @@
+# Changelog
+
+All notable changes to this provider are documented in this file. The format
+is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
+this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+## [1.3.0] - 2026-09-28
+
+### Added
+- `truenas_cloudsync_task`: `transfers` (parallel file transfers), `follow_symlinks`,
+  and `create_empty_src_dirs` (also on the data source). The crypt group
+  (`encryption`/`filename_encryption` with write-only `encryption_password`/`salt`)
+  and `bwlimit` (nested) remain to be modeled. (GH coverage audit)
+- `truenas_replication_task`: eight send-stream and behaviour options —
+  `compressed`, `embed`, `large_block` (ZFS send `-c`/`-e`/`-L`),
+  `allow_from_scratch`, `hold_pending_snapshots`, `only_matching_schedule`,
+  `logging_level`, and `properties_exclude` (also on the data source). The
+  encryption group (`encryption`/`encryption_key`/…) and the nested
+  `restrict_schedule`/`lifetimes`/`properties_override` remain to be modeled.
+  (GH coverage audit)
+- `truenas_group`: `users` — the list of user IDs (`truenas_user.id`) that are
+  members of the group (also on the data source). Omitting it leaves existing
+  membership unchanged; it is guarded so an unset value never wipes members.
+  (GH coverage audit)
+- `truenas_user`: `webshare` (grant web-file-share access; read back and
+  drift-detected) and `home_mode` (octal home-directory permission mode). The
+  API accepts `home_mode` but never returns it, so it is modeled as a
+  write-only attribute — it is applied on create/update but not read back or
+  drift-detected. (GH coverage audit)
+- `truenas_vm`: thirteen hardware/boot/CPU options — `machine_type`,
+  `arch_type`, `bootloader_ovmf`, `command_line_args`, `cpuset`, `nodeset`,
+  `enable_secure_boot`, `trusted_platform_module`, `pin_vcpus`, `hide_from_msr`,
+  `hyperv_enlightenments`, `enable_cpu_topology_extension`, and
+  `suspend_on_snapshot` (also on the data source). These are plain
+  Optional+Computed settings. TrueNAS enforces cross-field rules server-side
+  (e.g. `arch_type` is required with `machine_type`; `enable_secure_boot` needs
+  a compatible `machine_type`; `cpuset` must cover the vCPU count for
+  `pin_vcpus`), surfaced as apply-time errors. (GH-16)
+- `truenas_zvol`: seven ZFS tuning properties applicable to volumes —
+  `checksum`, `readonly`, `snapdev`, `copies`, `special_small_block_size`,
+  `reservation`, and `refreservation` (also on the data source), using the same
+  source-aware read as `truenas_dataset` (null when inherited/default).
+  Filesystem-only properties (recordsize, atime, exec, snapdir, aclmode, quota)
+  are intentionally excluded — they do not apply to a block device. (GH-16)
+- `truenas_dataset`: twelve ZFS tuning properties — `aclmode`, `atime`, `exec`,
+  `readonly`, `sync`, `checksum`, `snapdir`, `dedup`, `recordsize`, `copies`,
+  `special_small_block_size`, and `refreservation` (also exposed as computed
+  attributes on the data source). Each is source-aware: it reads back null when
+  the property is inherited from the parent or left at its ZFS default, so an
+  inherited value is never written into state and re-sent, and an apply cannot
+  silently convert an inherited property into a local one. (`sync`/`dedup` match
+  the existing `truenas_zvol` attribute names.) Note: because an inherited
+  property reads back as unset, reverting a locally-set value to inherited
+  cannot be expressed by removing it from the configuration — change it out of
+  band and refresh. (GH-16)
+- `truenas_dataset`: `xattr` (extended-attribute storage mode: SA / ON / OFF),
+  exposed **read-only** (also on the data source). TrueNAS returns it from
+  `get_instance` but does not accept it in the writable `create`/`update` API
+  (verified live on 25.10 and 27.0), so it can be read and drift-observed but
+  not set. With this, the original dataset ZFS-property request is fully
+  addressed — the other twelve are writable above. (GH-16)
+
+## [1.2.1] - 2026-09-28
+
+### Added
+- `truenas_smb_share`: plan-time validation now rejects an `options` field that
+  is not valid for the share's `purpose` (e.g. `recyclebin` on a
+  `TIMEMACHINE_SHARE`), pointing at the offending attribute and listing the
+  valid options for that purpose. Previously such a field was silently dropped.
+  (GH-21 follow-up)
+
+### Fixed
+- `truenas_smb_share` **data source**: now exposes the `options` object, matching
+  the resource. Previously the data source carried only the flat legacy
+  attributes, so purpose-specific settings (e.g. a `TIMEMACHINE_SHARE`'s
+  `auto_dataset_creation`) could not be read for a share not managed by the same
+  configuration. (GH-21 follow-up)
+
+## [1.2.0] - 2026-09-28
+
+### Added
+- `truenas_smb_share_acl`: new resource (and matching data source) managing an
+  SMB share's share-level ACL via `sharing.smb.setacl` / `getacl`, keyed by
+  `share_name`. Each entry sets `ae_perm` (FULL/CHANGE/READ), `ae_type`
+  (ALLOWED/DENIED) and one principal selector — `ae_who_sid`, `ae_who_id`
+  (`{id_type, id}`), or `ae_who_str`. Follows the same write-what-you-said
+  modeling as `truenas_filesystem_acl` (the server resolves the other principal
+  selectors on write, but only what you configured is kept in state, so there is
+  no spurious drift). `terraform destroy` resets the share ACL to the TrueNAS
+  default (`everyone@ FULL ALLOWED`) with a warning, since a share always has a
+  share ACL. This closes the last SMB API coverage gap — share-level ACLs were
+  previously unmanageable by the provider.
+- `truenas_smb_share`: a typed `options` object exposing the full
+  purpose-specific SMB settings (the discriminated `options` union on TrueNAS
+  26.0+/27.0), for **every** purpose — e.g. `TIMEMACHINE_SHARE`'s
+  `auto_dataset_creation` / `auto_snapshot` / `dataset_naming_schema`,
+  `DEFAULT_SHARE`/`MULTIPROTOCOL_SHARE`/etc. `hostsallow` / `hostsdeny` /
+  `aapl_name_mangling`, `TIME_LOCKED_SHARE`'s `grace_period`,
+  `PRIVATE_DATASETS_SHARE`'s `auto_quota`, and `EXTERNAL_SHARE`'s `remote_path`.
+  Only the fields valid for the chosen `purpose` are sent; the rest read back
+  null. The flat legacy attributes continue to work for `LEGACY_SHARE` and are
+  used as a fallback when the matching `options` field is unset. (GH-21)
+
+### Fixed
+- `truenas_smb_share`: `options` are now read back for **all** purposes, so
+  drift in purpose-specific settings is detected instead of being invisible,
+  and `Create`/`Update` no longer overwrite `options` with just the purpose —
+  which could silently reset settings such as a Time Machine share's
+  `auto_dataset_creation` on an unrelated apply. (GH-21)
+
+## [1.1.0] - 2026-09-23
+
+### Added
+- **Terraform Actions** (Terraform 1.14+): trigger operational TrueNAS jobs from
+  Terraform. Nine actions — `truenas_scrub_run`, `truenas_replication_run`,
+  `truenas_cloudsync_run`, `truenas_snapshot_task_run`, `truenas_service_control`
+  (verb START/STOP/RESTART/RELOAD), `truenas_app_start`, `truenas_app_stop`,
+  `truenas_app_redeploy`, and `truenas_ui_restart`. Job-backed actions take an
+  optional `wait` (default `true`); set `wait = false` to start the job and
+  return immediately instead of blocking until it completes.
+  `truenas_service_control` requires TrueNAS 26.0+.
+- **List resources / `terraform query`** (Terraform 1.14+): every resource can
+  be enumerated to discover objects that already exist on a TrueNAS system,
+  independent of Terraform state — the discovery half of the import story. See
+  `examples/list/` (including `discover-all.tfquery.hcl`, a full-system
+  inventory).
+- **Resource Identity** (Terraform 1.12+): every resource now has an identity
+  schema and supports identity-based import, e.g.
+  `import { to = truenas_pool.tank, identity = { id = 1 } }`. String-id import
+  (`terraform import`) continues to work unchanged.
+
+## [1.0.11] - 2026-09-21
+
+### Changed
+- `truenas_pool`: the provider now **refuses to ever plan a pool
+  destroy/recreate** from a configuration change. `name` and `topology` are no
+  longer `RequiresReplace`; instead a post-create change to either is rejected
+  at plan time with an actionable error, because replacing a ZFS pool destroys
+  all of its data and is essentially never a valid automatic outcome (the same
+  stance as AWS `deletion_protection`/`force_destroy` and Terraform's
+  `prevent_destroy`). A genuine topology change (grow, disk replace,
+  add/remove cache/log/spare) is made in TrueNAS/`zpool` and reconciled with
+  `terraform apply -refresh-only`; a deliberate teardown is still `terraform
+  destroy`. Adding `lifecycle { prevent_destroy = true }` to pool resources is
+  recommended as defense-in-depth (now shown in the example).
+
+### Fixed
+- `truenas_pool`: a pool with a **physically removed disk** — a pulled or failed
+  data member, or a removed cache/log device — no longer plans a
+  destroy/recreate. `pool.query` reports a `REMOVED`/`UNAVAIL` device with
+  `disk`/`device` null (and the disk drops out of `disk.query`), but still
+  carries an `unavail_disk` record with the disk's stable serial. The provider
+  now recovers the member identity from that serial, so a serial-pinned config
+  matches the removed member and the degraded pool plans no change. Verified
+  live (member pulled from a mirror, pool imported, plans "No changes").
+  Complements the hot-spare-activation fix in v1.0.10.
+
+## [1.0.10] - 2026-09-21
+
+### Fixed
+- `truenas_pool`: a pool that has gone **degraded with a hot spare active** no
+  longer plans a destroy/recreate. When a spare steps in for a faulted member,
+  `pool.query` nests a `SPARE` vdev (original faulted disk + spare) inside the
+  data vdev; the provider read the mirror's members as `[disk, ""]`, which
+  differed from the configured membership and — because `topology` is
+  `RequiresReplace` — planned a destroy/recreate of a degraded pool (a
+  data-loss hazard). A nested `SPARE`/`REPLACING` child is now represented by
+  its original member, so a degraded, spare-covered pool reads back with its
+  configured membership and plans no change. Verified live: a real hot-spare
+  activation on physical disks, imported with a serial-pinned config, plans
+  "No changes."
+
+## [1.0.9] - 2026-09-21
+
+### Fixed
+- `truenas_pool`: a pool no longer plans a destroy/recreate when a disk's
+  kernel device name (`sdX`) changes across a reboot, and no longer perpetually
+  diffs on the vdev `type` spelling (issue #9). Two root causes:
+  - Topology disks could only be named by the volatile `sdX` device name, so a
+    reboot renumber made `RequiresReplace` fire. `disks` now accepts a disk
+    named by its stable **serial** (recommended), its TrueNAS identifier, a
+    `/dev/disk/by-id` path, or an `sdX` name; at plan time the provider resolves
+    the configured name and the one in state (via `disk.query`) to the same
+    physical disk and suppresses the diff, so a config that pins disks by serial
+    is renumber-proof. State reflects the live device name; the stability is in
+    the plan, not a rewritten state. Existing `sdX` configs keep working.
+  - A single-disk vdev read back as `type = "DISK"` but written in config as
+    `"STRIPE"` (or vice-versa) perpetually diffed; `"DISK"` is now accepted as
+    an alias for `"STRIPE"`. Computed pool attributes also carry
+    `UseStateForUnknown` so a no-op plan no longer shows a spurious in-place
+    update. Verified live end-to-end (create by serial, re-plan by sdX +
+    `DISK` as a no-op, import) on real disks.
+
+## [1.0.8] - 2026-09-19
+
+### Documentation
+- Swept every resource example that consumes a dataset to reference the dataset
+  resource rather than hardcoding its path or name, so a single `terraform
+  apply` that manages the dataset and its consumers orders them correctly
+  instead of racing (a hardcoded value gives Terraform no dependency edge and
+  fails with a "path/parent not found" error on the first apply, succeeding
+  only on the second). Path consumers (`truenas_filesystem_permissions`,
+  `truenas_filesystem_acl`, `truenas_webshare`, `truenas_rsync_task`,
+  `truenas_cloudsync_task`, `truenas_cloud_backup`) now use
+  `truenas_dataset.<name>.mountpoint`; dataset-name consumers
+  (`truenas_periodic_snapshot_task`, `truenas_snapshot`,
+  `truenas_replication_task`, `truenas_vmware`) use `truenas_dataset.<name>.name`.
+- Regenerated the `truenas_dataset` and `truenas_pool` reference docs, which
+  v1.0.7 shipped without regenerating after their examples changed.
+
+## [1.0.7] - 2026-09-19
+
+### Added
+- Attribute-coverage fill from a live-API field audit:
+  - `truenas_smb_share`: nested `audit` block (`enable`, `watch_list`,
+    `ignore_list`) for per-share audit logging.
+  - `truenas_nfs_share`: `security` (SYS/KRB5/KRB5I/KRB5P) and
+    `expose_snapshots`.
+  - `truenas_iscsi_extent`: `filesize` for FILE-type extents.
+  - `truenas_iscsi_target`: nested `iscsi_parameters` block (`queued_commands`).
+- `truenas_replication_task`: SSH+NETCAT transport. `transport` now accepts
+  `"SSH+NETCAT"` (unencrypted data channel over a netcat connection, authenticated
+  over SSH) alongside the new `netcat_active_side`,
+  `netcat_active_side_listen_address`, `netcat_active_side_port_min`,
+  `netcat_active_side_port_max`, and `netcat_passive_side_connect_address`
+  attributes.
+- `truenas_nfs_share`: `mapall_user` and `mapall_group` attributes, mapping all
+  NFS clients to a given user/group (mutually exclusive with `maproot_*`).
+- Release, CI, and governance scaffolding: MPL-2.0 `LICENSE`, GoReleaser
+  release pipeline and Terraform Registry manifest, GitHub Actions
+  (build/vet/gofmt/lint/unit-test/docs-check/license-header-check on PRs;
+  signed release on tags; manual self-hosted acceptance run), `SECURITY.md`,
+  `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, and this changelog.
+- SPDX license headers (`MPL-2.0`, TrueNAS) on all Go source files,
+  with a `.copywrite.hcl` config and a CI check enforcing them.
+- Supply-chain and governance files: `.github/CODEOWNERS`,
+  `.github/dependabot.yml` (Go modules and Actions), issue templates, and a
+  pull-request template.
+- `VERSIONING.md`: the semantic-versioning, TrueNAS-release-compatibility,
+  state-migration, and deprecation policy.
+
+### Security
+- Marked the SNMP `community` string and the VM device `attributes` blob
+  (which can carry a DISPLAY console password) `Sensitive`, so neither
+  appears in plan output or unmasked state.
+- Documented that `insecure = true` also weakens authentication (an
+  intercepting peer can force the plaintext-key fallback that SCRAM
+  otherwise prevents).
+
+### Documentation
+- `truenas_pool` / `truenas_dataset` examples: when a configuration manages a
+  pool and datasets together, the dataset name now references the pool
+  (`name = "${truenas_pool.tank.name}/media"`) so Terraform orders the pool
+  before its datasets instead of racing them (a hardcoded name gives no
+  dependency edge and fails with a parent-not-found error on the first apply,
+  succeeding only on the second). Also corrects the `truenas_pool` example's
+  `topology` to the nested-attribute assignment form (`topology = { ... }`),
+  which the block form (`topology { ... }`) is not valid for.
+
+### Fixed
+- `truenas_ipmi_lan`: reading a statically-addressed BMC LAN channel back right
+  after a change no longer produces a spurious perpetual diff. The BMC LAN
+  controller flaps `ip_address`/`subnet_mask` through `0.0.0.0` (under both a
+  `static` and an `unspecified` source) for 10–15s while it settles after any
+  `ipmi.lan.update`; the resource's Read and Import now wait out that transient
+  when the channel is a configured static address, converging on any settled
+  non-zero read (so a genuine out-of-band change is still detected as drift).
+  Verified live end-to-end (apply + refresh + import) on a physical BMC.
+- `truenas_network_config`: create/update no longer fails on a box that leaves
+  `ipv6gateway` or a `nameserver2`/`nameserver3` slot empty (the common case).
+  Empty gateway/nameserver fields were sent as JSON `null`, which TrueNAS
+  rejects (`[EINVAL] ... Input should be ''`); they are now sent as `""`.
+  Verified live (hostname set/restore) on a disposable box.
+- `truenas_cloudsync_credentials`: a custom S3 `endpoint` (MinIO, SeaweedFS,
+  Wasabi, Backblaze, and any other S3-compatible provider) no longer causes a
+  perpetual diff. TrueNAS appends a trailing slash to the endpoint on
+  read-back; the drift check now treats a trailing-slash-only difference as
+  server normalization rather than a change. Verified live against a local
+  S3-compatible endpoint.
+- `truenas_pool`: pool creation and lifecycle now work end-to-end (verified on
+  live drives). Fixes a cascade of bugs, none previously covered by a live
+  create test:
+  - a "Value Conversion Error" crash when a config omitted the `log` vdev
+    (topology vdev lists now hold null/unknown).
+  - `pool.create` payload mismatches: `autotrim` isn't a create field (now
+    applied via a follow-up update), the topology spares key is `spares` (not
+    `spare`), and cache vdevs use `type = "STRIPE"`.
+  - deletion used a nonexistent `pool.delete` (now `pool.export` with
+    `destroy`), and import failed for the numeric id (now imports by id or
+    name).
+  - reading a single-disk cache/log/spare vdev back (device is reported at the
+    vdev top level with empty children; single-disk log normalizes
+    `DISK`→`STRIPE`).
+
+<!--
+Release process:
+1. Move the Unreleased entries under a new "## [X.Y.Z] - YYYY-MM-DD" heading.
+2. Commit, then tag: git tag vX.Y.Z && git push origin vX.Y.Z
+3. The release workflow builds, signs, and publishes the archives the
+   Terraform Registry ingests.
+-->
