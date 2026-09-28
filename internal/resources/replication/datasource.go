@@ -79,6 +79,11 @@ func (d *ReplicationDataSource) Schema(_ context.Context, _ datasource.SchemaReq
 			"only_matching_schedule": dschema.BoolAttribute{Computed: true},
 			"logging_level":          dschema.StringAttribute{Computed: true},
 			"properties_exclude":     dschema.ListAttribute{Computed: true, ElementType: types.StringType},
+			// Encryption (encryption_key is write-only, not exposed).
+			"encryption":              dschema.BoolAttribute{Computed: true},
+			"encryption_inherit":      dschema.BoolAttribute{Computed: true},
+			"encryption_key_format":   dschema.StringAttribute{Computed: true},
+			"encryption_key_location": dschema.StringAttribute{Computed: true},
 		},
 	}
 }

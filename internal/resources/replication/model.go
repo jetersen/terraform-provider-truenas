@@ -74,6 +74,14 @@ type ReplicationModel struct {
 	OnlyMatchingSchedule types.Bool   `tfsdk:"only_matching_schedule"`
 	LoggingLevel         types.String `tfsdk:"logging_level"` // null = default
 	PropertiesExclude    types.List   `tfsdk:"properties_exclude"`
+
+	// Encryption of the replicated (target) datasets. encryption_key is a
+	// write-only secret (read from req.Config, never stored/read back).
+	Encryption            types.Bool   `tfsdk:"encryption"`
+	EncryptionInherit     types.Bool   `tfsdk:"encryption_inherit"`
+	EncryptionKey         types.String `tfsdk:"encryption_key"` // write-only
+	EncryptionKeyFormat   types.String `tfsdk:"encryption_key_format"`
+	EncryptionKeyLocation types.String `tfsdk:"encryption_key_location"`
 }
 
 // embeddedTask is the shape of an embedded periodic snapshot task object
@@ -131,6 +139,12 @@ type replicationAPI struct {
 	OnlyMatchingSchedule bool     `json:"only_matching_schedule"`
 	LoggingLevel         *string  `json:"logging_level"`
 	PropertiesExclude    []string `json:"properties_exclude"`
+
+	// Encryption (encryption_key is write-only, not read back).
+	Encryption            bool    `json:"encryption"`
+	EncryptionInherit     *bool   `json:"encryption_inherit"`
+	EncryptionKeyFormat   *string `json:"encryption_key_format"`
+	EncryptionKeyLocation *string `json:"encryption_key_location"`
 }
 
 // sshCredentialsID decodes the ssh_credentials field, which the API may
@@ -164,6 +178,15 @@ func sshCredentialsID(v any) int64 {
 }
 
 // stringPtrToValue maps a nullable API string to a types.String (null when nil).
+// injectEncryptionKey adds the write-only encryption_key to a create/update
+// payload from the config model (the framework nulls write-only attrs in the
+// plan, so the resource reads it from req.Config).
+func injectEncryptionKey(payload map[string]any, cfg *ReplicationModel) {
+	if !cfg.EncryptionKey.IsNull() && !cfg.EncryptionKey.IsUnknown() {
+		payload["encryption_key"] = cfg.EncryptionKey.ValueString()
+	}
+}
+
 func stringPtrToValue(p *string) types.String {
 	if p == nil {
 		return types.StringNull()
@@ -317,6 +340,17 @@ func responseToModel(ctx context.Context, api *replicationAPI, m *ReplicationMod
 	diags.Append(dpe...)
 	m.PropertiesExclude = peList
 
+	// Encryption: encryption_key is write-only and never read back (left as the
+	// plan/state value, i.e. null).
+	m.Encryption = types.BoolValue(api.Encryption)
+	if api.EncryptionInherit != nil {
+		m.EncryptionInherit = types.BoolValue(*api.EncryptionInherit)
+	} else {
+		m.EncryptionInherit = types.BoolNull()
+	}
+	m.EncryptionKeyFormat = stringPtrToValue(api.EncryptionKeyFormat)
+	m.EncryptionKeyLocation = stringPtrToValue(api.EncryptionKeyLocation)
+
 	return diags
 }
 
@@ -423,6 +457,21 @@ func (m *ReplicationModel) apiPayload(ctx context.Context) (map[string]any, diag
 			pe = []string{}
 		}
 		p["properties_exclude"] = pe
+	}
+
+	// Encryption group (encryption_key is injected from req.Config by the
+	// resource, since the framework nulls write-only attrs in the plan).
+	if !m.Encryption.IsNull() && !m.Encryption.IsUnknown() {
+		p["encryption"] = m.Encryption.ValueBool()
+	}
+	if !m.EncryptionInherit.IsNull() && !m.EncryptionInherit.IsUnknown() {
+		p["encryption_inherit"] = m.EncryptionInherit.ValueBool()
+	}
+	if !m.EncryptionKeyFormat.IsNull() && !m.EncryptionKeyFormat.IsUnknown() {
+		p["encryption_key_format"] = m.EncryptionKeyFormat.ValueString()
+	}
+	if !m.EncryptionKeyLocation.IsNull() && !m.EncryptionKeyLocation.IsUnknown() {
+		p["encryption_key_location"] = m.EncryptionKeyLocation.ValueString()
 	}
 
 	// compression / speed_limit: SSH-only, nullable on the wire. Always

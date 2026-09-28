@@ -271,6 +271,32 @@ func resourceSchema() schema.Schema {
 					listplanmodifier.UseStateForUnknown(),
 				},
 			},
+
+			// --- Encryption of the replicated target datasets ---
+			"encryption":         replBoolAttr("Create the target datasets as encrypted. Requires encryption_key (or encryption_inherit)."),
+			"encryption_inherit": replBoolAttr("Inherit encryption from the target's parent dataset instead of supplying a key."),
+			"encryption_key": schema.StringAttribute{
+				Optional:    true,
+				Sensitive:   true,
+				WriteOnly:   true,
+				Description: "Encryption key (hex string, or passphrase per encryption_key_format). Write-only: never stored in Terraform state or read back. Requires Terraform >= 1.11.",
+			},
+			"encryption_key_format": schema.StringAttribute{
+				Optional:    true,
+				Computed:    true,
+				Description: "Format of encryption_key: HEX or PASSPHRASE.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"encryption_key_location": schema.StringAttribute{
+				Optional:    true,
+				Computed:    true,
+				Description: "Path on the target system where the encryption key is stored ($TrueNAS-managed location if omitted).",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
 		},
 	}
 }

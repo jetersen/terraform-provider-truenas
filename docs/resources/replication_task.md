@@ -56,12 +56,19 @@ resource "truenas_replication_task" "local_backup" {
 
 ### Optional
 
+> **NOTE**: [Write-only arguments](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments) are supported in Terraform 1.11 and later.
+
 - `allow_from_scratch` (Boolean) Destroy all snapshots on the target and replicate everything from scratch if the incremental base is missing.
 - `also_include_naming_schema` (List of String) Additional naming schemas to include. Mutually exclusive with name_regex.
 - `compressed` (Boolean) Enable compressed ZFS send streams (zfs send -c).
 - `compression` (String) Compresses the SSH stream: LZ4, PIGZ, or PLZIP. Available only for transport = "SSH"; must be unset for transport = "LOCAL".
 - `embed` (Boolean) Enable embedded-block ZFS send streams (zfs send -e).
 - `enabled` (Boolean) Whether the replication task is enabled.
+- `encryption` (Boolean) Create the target datasets as encrypted. Requires encryption_key (or encryption_inherit).
+- `encryption_inherit` (Boolean) Inherit encryption from the target's parent dataset instead of supplying a key.
+- `encryption_key` (String, Sensitive, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) Encryption key (hex string, or passphrase per encryption_key_format). Write-only: never stored in Terraform state or read back. Requires Terraform >= 1.11.
+- `encryption_key_format` (String) Format of encryption_key: HEX or PASSPHRASE.
+- `encryption_key_location` (String) Path on the target system where the encryption key is stored ($TrueNAS-managed location if omitted).
 - `exclude` (List of String) Dataset paths to exclude from a recursive replication.
 - `hold_pending_snapshots` (Boolean) Prevent source snapshots from being deleted by retention while a replication is pending.
 - `large_block` (Boolean) Enable large-block ZFS send streams (zfs send -L).

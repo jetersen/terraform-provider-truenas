@@ -29,6 +29,10 @@ Fetches a TrueNAS replication task by name.
 - `direction` (String)
 - `embed` (Boolean)
 - `enabled` (Boolean)
+- `encryption` (Boolean)
+- `encryption_inherit` (Boolean)
+- `encryption_key_format` (String)
+- `encryption_key_location` (String)
 - `exclude` (List of String)
 - `hold_pending_snapshots` (Boolean)
 - `id` (Number) The ID of this resource.
