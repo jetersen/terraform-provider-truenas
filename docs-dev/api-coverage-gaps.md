@@ -34,7 +34,6 @@ NOT covered by this pass:
 | `replication` | 15 | compressed, embed, large_block, encryption, encryption_inherit, encryption_key_format, encryption_key_location, allow_from_scratch, hold_pending_snapshots, logging_level, only_matching_schedule, restrict_schedule, properties_exclude, properties_override, lifetimes |
 | `pool` | 7 | encryption, encryption_options, deduplication, checksum, dedup_table_quota, dedup_table_quota_value, all_sed |
 | `cloudsync` | 7 | args, bwlimit, transfers, encryption, filename_encryption, follow_symlinks, create_empty_src_dirs |
-| `cloud_backup` | 1 | args |
 | `periodic_snapshot` | 1 | fixate_removal_date |
 
 ### Compute / network
@@ -44,7 +43,6 @@ NOT covered by this pass:
 | `vm` | 13 | machine_type, enable_secure_boot, trusted_platform_module, bootloader_ovmf, cpuset, nodeset, pin_vcpus, arch_type, command_line_args, hyperv_enlightenments, hide_from_msr, enable_cpu_topology_extension, suspend_on_snapshot |
 | `network_interface` | 5 | enable_learning, fec_mode, lacpdu_rate, vlan_pcp, xmit_hash_policy |
 | `iscsi_global` | 2 | direct_config, mode |
-| `nfs` | 1 | aliases |
 
 ### Identity
 
@@ -67,6 +65,7 @@ NOT covered by this pass:
 - Renames: `service.enable`→`enabled`, `certificate.CSR`→`csr`, `app.app_name`→`name`, `app.custom_compose_config`→`custom_compose_config_string`, `cloudsync_credentials.provider`→`provider_config`.
 - Server-generated / read-only: `vm.uuid`.
 - Documented omissions: `certificate.cert_extensions`, `mail.oauth`, `directoryservices.configuration` (modeled as the flattened per-service-type union).
+- Non-functional / deprecated API fields (found on live probe, not real gaps): `nfs.aliases` (API description: "IGNORED for now."), `cloud_backup.args` (API description: "(Slated for removal)."). `user.home_mode` is write-only (accepted but never returned by `user.query`) and is modeled as a write-only attribute rather than Optional+Computed.
 
 ## Priority
 
@@ -75,4 +74,4 @@ NOT covered by this pass:
 3. `replication` send/encryption options.
 4. `pool` encryption + dedup + checksum.
 5. `cloudsync` rclone options.
-6. The tail (`network_interface`, `user`, `group`, `nfs`, `iscsi_global`, `cloud_backup`, `periodic_snapshot`, `directoryservices.force`).
+6. The tail (`network_interface`, `user` [done], `group`, `iscsi_global`, `periodic_snapshot`, `directoryservices.force`).

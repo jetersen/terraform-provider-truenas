@@ -7,6 +7,11 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [Unreleased]
 
 ### Added
+- `truenas_user`: `webshare` (grant web-file-share access; read back and
+  drift-detected) and `home_mode` (octal home-directory permission mode). The
+  API accepts `home_mode` but never returns it, so it is modeled as a
+  write-only attribute — it is applied on create/update but not read back or
+  drift-detected. (GH coverage audit)
 - `truenas_vm`: thirteen hardware/boot/CPU options — `machine_type`,
   `arch_type`, `bootloader_ovmf`, `command_line_args`, `cpuset`, `nodeset`,
   `enable_secure_boot`, `trusted_platform_module`, `pin_vcpus`, `hide_from_msr`,
