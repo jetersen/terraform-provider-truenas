@@ -7,6 +7,10 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [Unreleased]
 
 ### Added
+- `truenas_group`: `users` — the list of user IDs (`truenas_user.id`) that are
+  members of the group (also on the data source). Omitting it leaves existing
+  membership unchanged; it is guarded so an unset value never wipes members.
+  (GH coverage audit)
 - `truenas_user`: `webshare` (grant web-file-share access; read back and
   drift-detected) and `home_mode` (octal home-directory permission mode). The
   API accepts `home_mode` but never returns it, so it is modeled as a
