@@ -246,6 +246,42 @@ func resourceSchema() schema.Schema {
 					int64planmodifier.UseStateForUnknown(),
 				},
 			},
+
+			// --- Send-stream / behaviour options (GH coverage audit) ---
+			"compressed":             replBoolAttr("Enable compressed ZFS send streams (zfs send -c)."),
+			"embed":                  replBoolAttr("Enable embedded-block ZFS send streams (zfs send -e)."),
+			"large_block":            replBoolAttr("Enable large-block ZFS send streams (zfs send -L)."),
+			"allow_from_scratch":     replBoolAttr("Destroy all snapshots on the target and replicate everything from scratch if the incremental base is missing."),
+			"hold_pending_snapshots": replBoolAttr("Prevent source snapshots from being deleted by retention while a replication is pending."),
+			"only_matching_schedule": replBoolAttr("Only replicate snapshots that match `schedule` or `restrict_schedule`."),
+			"logging_level": schema.StringAttribute{
+				Optional:    true,
+				Computed:    true,
+				Description: "Log verbosity for task execution, e.g. DEBUG, INFO, WARNING, ERROR. Null uses the system default.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"properties_exclude": schema.ListAttribute{
+				Optional:    true,
+				Computed:    true,
+				ElementType: types.StringType,
+				Description: "Dataset property names to exclude from replication.",
+				PlanModifiers: []planmodifier.List{
+					listplanmodifier.UseStateForUnknown(),
+				},
+			},
 		},
+	}
+}
+
+// replBoolAttr is an Optional+Computed bool attribute for the GH-coverage-audit
+// replication send-stream/behaviour options.
+func replBoolAttr(desc string) schema.BoolAttribute {
+	return schema.BoolAttribute{
+		Optional:      true,
+		Computed:      true,
+		Description:   desc,
+		PlanModifiers: []planmodifier.Bool{boolplanmodifier.UseStateForUnknown()},
 	}
 }

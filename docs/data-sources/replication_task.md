@@ -21,15 +21,21 @@ Fetches a TrueNAS replication task by name.
 
 ### Read-Only
 
+- `allow_from_scratch` (Boolean)
 - `also_include_naming_schema` (List of String)
 - `auto` (Boolean)
+- `compressed` (Boolean)
 - `compression` (String)
 - `direction` (String)
+- `embed` (Boolean)
 - `enabled` (Boolean)
 - `exclude` (List of String)
+- `hold_pending_snapshots` (Boolean)
 - `id` (Number) The ID of this resource.
+- `large_block` (Boolean)
 - `lifetime_unit` (String)
 - `lifetime_value` (Number)
+- `logging_level` (String)
 - `name_regex` (String)
 - `naming_schema` (List of String)
 - `netcat_active_side` (String)
@@ -37,8 +43,10 @@ Fetches a TrueNAS replication task by name.
 - `netcat_active_side_port_max` (Number)
 - `netcat_active_side_port_min` (Number)
 - `netcat_passive_side_connect_address` (String)
+- `only_matching_schedule` (Boolean)
 - `periodic_snapshot_tasks` (List of Number)
 - `properties` (Boolean)
+- `properties_exclude` (List of String)
 - `readonly` (String)
 - `recursive` (Boolean)
 - `replicate` (Boolean)

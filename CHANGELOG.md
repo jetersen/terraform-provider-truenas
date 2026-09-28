@@ -7,6 +7,13 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [Unreleased]
 
 ### Added
+- `truenas_replication_task`: eight send-stream and behaviour options —
+  `compressed`, `embed`, `large_block` (ZFS send `-c`/`-e`/`-L`),
+  `allow_from_scratch`, `hold_pending_snapshots`, `only_matching_schedule`,
+  `logging_level`, and `properties_exclude` (also on the data source). The
+  encryption group (`encryption`/`encryption_key`/…) and the nested
+  `restrict_schedule`/`lifetimes`/`properties_override` remain to be modeled.
+  (GH coverage audit)
 - `truenas_group`: `users` — the list of user IDs (`truenas_user.id`) that are
   members of the group (also on the data source). Omitting it leaves existing
   membership unchanged; it is guarded so an unset value never wipes members.

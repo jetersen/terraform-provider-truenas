@@ -64,6 +64,16 @@ type ReplicationModel struct {
 	Readonly                        types.String `tfsdk:"readonly"`         // SET, REQUIRE, IGNORE
 	Enabled                         types.Bool   `tfsdk:"enabled"`
 	Retries                         types.Int64  `tfsdk:"retries"`
+
+	// Send-stream / behaviour options (GH coverage audit).
+	Compressed           types.Bool   `tfsdk:"compressed"`  // zfs send -c
+	Embed                types.Bool   `tfsdk:"embed"`       // zfs send -e
+	LargeBlock           types.Bool   `tfsdk:"large_block"` // zfs send -L
+	AllowFromScratch     types.Bool   `tfsdk:"allow_from_scratch"`
+	HoldPendingSnapshots types.Bool   `tfsdk:"hold_pending_snapshots"`
+	OnlyMatchingSchedule types.Bool   `tfsdk:"only_matching_schedule"`
+	LoggingLevel         types.String `tfsdk:"logging_level"` // null = default
+	PropertiesExclude    types.List   `tfsdk:"properties_exclude"`
 }
 
 // embeddedTask is the shape of an embedded periodic snapshot task object
@@ -111,6 +121,16 @@ type replicationAPI struct {
 	Readonly        string  `json:"readonly"`
 	Enabled         bool    `json:"enabled"`
 	Retries         int64   `json:"retries"`
+
+	// Send-stream / behaviour options (GH coverage audit).
+	Compressed           bool     `json:"compressed"`
+	Embed                bool     `json:"embed"`
+	LargeBlock           bool     `json:"large_block"`
+	AllowFromScratch     bool     `json:"allow_from_scratch"`
+	HoldPendingSnapshots bool     `json:"hold_pending_snapshots"`
+	OnlyMatchingSchedule bool     `json:"only_matching_schedule"`
+	LoggingLevel         *string  `json:"logging_level"`
+	PropertiesExclude    []string `json:"properties_exclude"`
 }
 
 // sshCredentialsID decodes the ssh_credentials field, which the API may
@@ -281,6 +301,22 @@ func responseToModel(ctx context.Context, api *replicationAPI, m *ReplicationMod
 	m.Enabled = types.BoolValue(api.Enabled)
 	m.Retries = types.Int64Value(api.Retries)
 
+	// Send-stream / behaviour options (GH coverage audit).
+	m.Compressed = types.BoolValue(api.Compressed)
+	m.Embed = types.BoolValue(api.Embed)
+	m.LargeBlock = types.BoolValue(api.LargeBlock)
+	m.AllowFromScratch = types.BoolValue(api.AllowFromScratch)
+	m.HoldPendingSnapshots = types.BoolValue(api.HoldPendingSnapshots)
+	m.OnlyMatchingSchedule = types.BoolValue(api.OnlyMatchingSchedule)
+	m.LoggingLevel = stringPtrToValue(api.LoggingLevel)
+	propsExclude := api.PropertiesExclude
+	if propsExclude == nil {
+		propsExclude = []string{}
+	}
+	peList, dpe := types.ListValueFrom(ctx, types.StringType, propsExclude)
+	diags.Append(dpe...)
+	m.PropertiesExclude = peList
+
 	return diags
 }
 
@@ -355,6 +391,38 @@ func (m *ReplicationModel) apiPayload(ctx context.Context) (map[string]any, diag
 	}
 	if !m.Retries.IsNull() && !m.Retries.IsUnknown() {
 		p["retries"] = m.Retries.ValueInt64()
+	}
+
+	// Send-stream / behaviour options (GH coverage audit): Optional+Computed,
+	// sent only when set (same reasoning as the scalars above).
+	if !m.Compressed.IsNull() && !m.Compressed.IsUnknown() {
+		p["compressed"] = m.Compressed.ValueBool()
+	}
+	if !m.Embed.IsNull() && !m.Embed.IsUnknown() {
+		p["embed"] = m.Embed.ValueBool()
+	}
+	if !m.LargeBlock.IsNull() && !m.LargeBlock.IsUnknown() {
+		p["large_block"] = m.LargeBlock.ValueBool()
+	}
+	if !m.AllowFromScratch.IsNull() && !m.AllowFromScratch.IsUnknown() {
+		p["allow_from_scratch"] = m.AllowFromScratch.ValueBool()
+	}
+	if !m.HoldPendingSnapshots.IsNull() && !m.HoldPendingSnapshots.IsUnknown() {
+		p["hold_pending_snapshots"] = m.HoldPendingSnapshots.ValueBool()
+	}
+	if !m.OnlyMatchingSchedule.IsNull() && !m.OnlyMatchingSchedule.IsUnknown() {
+		p["only_matching_schedule"] = m.OnlyMatchingSchedule.ValueBool()
+	}
+	if !m.LoggingLevel.IsNull() && !m.LoggingLevel.IsUnknown() {
+		p["logging_level"] = m.LoggingLevel.ValueString()
+	}
+	if !m.PropertiesExclude.IsNull() && !m.PropertiesExclude.IsUnknown() {
+		var pe []string
+		diags.Append(m.PropertiesExclude.ElementsAs(ctx, &pe, false)...)
+		if pe == nil {
+			pe = []string{}
+		}
+		p["properties_exclude"] = pe
 	}
 
 	// compression / speed_limit: SSH-only, nullable on the wire. Always

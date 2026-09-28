@@ -56,12 +56,18 @@ resource "truenas_replication_task" "local_backup" {
 
 ### Optional
 
+- `allow_from_scratch` (Boolean) Destroy all snapshots on the target and replicate everything from scratch if the incremental base is missing.
 - `also_include_naming_schema` (List of String) Additional naming schemas to include. Mutually exclusive with name_regex.
+- `compressed` (Boolean) Enable compressed ZFS send streams (zfs send -c).
 - `compression` (String) Compresses the SSH stream: LZ4, PIGZ, or PLZIP. Available only for transport = "SSH"; must be unset for transport = "LOCAL".
+- `embed` (Boolean) Enable embedded-block ZFS send streams (zfs send -e).
 - `enabled` (Boolean) Whether the replication task is enabled.
 - `exclude` (List of String) Dataset paths to exclude from a recursive replication.
+- `hold_pending_snapshots` (Boolean) Prevent source snapshots from being deleted by retention while a replication is pending.
+- `large_block` (Boolean) Enable large-block ZFS send streams (zfs send -L).
 - `lifetime_unit` (String) HOUR, DAY, WEEK, MONTH, or YEAR. Unset ("") when retention_policy is not CUSTOM.
 - `lifetime_value` (Number) Retention lifetime value. Unset (0) when retention_policy is not CUSTOM.
+- `logging_level` (String) Log verbosity for task execution, e.g. DEBUG, INFO, WARNING, ERROR. Null uses the system default.
 - `name_regex` (String) Regular expression matching snapshot names to replicate. Mutually exclusive with naming_schema/also_include_naming_schema.
 - `naming_schema` (List of String) Naming schemas of snapshots to replicate. Mutually exclusive with name_regex.
 - `netcat_active_side` (String) For transport = "SSH+NETCAT", which side actively opens the netcat data connection: LOCAL or REMOTE. Required for SSH+NETCAT; must be unset for other transports.
@@ -69,8 +75,10 @@ resource "truenas_replication_task" "local_backup" {
 - `netcat_active_side_port_max` (Number) For transport = "SSH+NETCAT", the high end of the port range the active side may listen on (1-65535). Only valid for SSH+NETCAT.
 - `netcat_active_side_port_min` (Number) For transport = "SSH+NETCAT", the low end of the port range the active side may listen on (1-65535). Only valid for SSH+NETCAT.
 - `netcat_passive_side_connect_address` (String) For transport = "SSH+NETCAT", the IP address the passive side connects to. Only valid for SSH+NETCAT.
+- `only_matching_schedule` (Boolean) Only replicate snapshots that match `schedule` or `restrict_schedule`.
 - `periodic_snapshot_tasks` (List of Number) IDs of periodic snapshot tasks that feed this replication task.
 - `properties` (Boolean) Include dataset properties in the replication stream.
+- `properties_exclude` (List of String) Dataset property names to exclude from replication.
 - `readonly` (String) SET, REQUIRE, or IGNORE.
 - `replicate` (Boolean) Replicate the full dataset tree.
 - `retries` (Number) Number of retries on failure.
