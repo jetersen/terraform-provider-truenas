@@ -297,6 +297,24 @@ func resourceSchema() schema.Schema {
 					stringplanmodifier.UseStateForUnknown(),
 				},
 			},
+			"restrict_schedule": schema.SingleNestedAttribute{
+				Optional:    true,
+				Description: "Only replicate snapshots taken within this cron window (used with only_matching_schedule). Same fields as schedule, plus optional begin/end times.",
+				Attributes: map[string]schema.Attribute{
+					"minute": schema.StringAttribute{Required: true, Description: "Cron minute."},
+					"hour":   schema.StringAttribute{Required: true, Description: "Cron hour."},
+					"dom":    schema.StringAttribute{Required: true, Description: "Day of month."},
+					"month":  schema.StringAttribute{Required: true, Description: "Month."},
+					"dow":    schema.StringAttribute{Required: true, Description: "Day of week."},
+					"begin":  schema.StringAttribute{Optional: true, Description: "Start of the daily window, \"HH:MM\"."},
+					"end":    schema.StringAttribute{Optional: true, Description: "End of the daily window, \"HH:MM\"."},
+				},
+			},
+			"properties_override": schema.MapAttribute{
+				Optional:    true,
+				ElementType: types.StringType,
+				Description: "ZFS properties to force to specific values on the target datasets (property name -> value).",
+			},
 		},
 	}
 }

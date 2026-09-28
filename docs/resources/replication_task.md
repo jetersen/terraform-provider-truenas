@@ -86,8 +86,10 @@ resource "truenas_replication_task" "local_backup" {
 - `periodic_snapshot_tasks` (List of Number) IDs of periodic snapshot tasks that feed this replication task.
 - `properties` (Boolean) Include dataset properties in the replication stream.
 - `properties_exclude` (List of String) Dataset property names to exclude from replication.
+- `properties_override` (Map of String) ZFS properties to force to specific values on the target datasets (property name -> value).
 - `readonly` (String) SET, REQUIRE, or IGNORE.
 - `replicate` (Boolean) Replicate the full dataset tree.
+- `restrict_schedule` (Attributes) Only replicate snapshots taken within this cron window (used with only_matching_schedule). Same fields as schedule, plus optional begin/end times. (see [below for nested schema](#nestedatt--restrict_schedule))
 - `retries` (Number) Number of retries on failure.
 - `schedule` (Attributes) Cron schedule for automatic replication runs. (see [below for nested schema](#nestedatt--schedule))
 - `speed_limit` (Number) Limits the speed of the SSH stream, in bytes per second. Available only for transport = "SSH"; must be unset for transport = "LOCAL".
@@ -98,6 +100,23 @@ resource "truenas_replication_task" "local_backup" {
 ### Read-Only
 
 - `id` (Number) Numeric replication task ID assigned by TrueNAS.
+
+<a id="nestedatt--restrict_schedule"></a>
+### Nested Schema for `restrict_schedule`
+
+Required:
+
+- `dom` (String) Day of month.
+- `dow` (String) Day of week.
+- `hour` (String) Cron hour.
+- `minute` (String) Cron minute.
+- `month` (String) Month.
+
+Optional:
+
+- `begin` (String) Start of the daily window, "HH:MM".
+- `end` (String) End of the daily window, "HH:MM".
+
 
 <a id="nestedatt--schedule"></a>
 ### Nested Schema for `schedule`

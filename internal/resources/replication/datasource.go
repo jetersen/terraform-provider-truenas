@@ -84,6 +84,19 @@ func (d *ReplicationDataSource) Schema(_ context.Context, _ datasource.SchemaReq
 			"encryption_inherit":      dschema.BoolAttribute{Computed: true},
 			"encryption_key_format":   dschema.StringAttribute{Computed: true},
 			"encryption_key_location": dschema.StringAttribute{Computed: true},
+			"restrict_schedule": dschema.SingleNestedAttribute{
+				Computed: true,
+				Attributes: map[string]dschema.Attribute{
+					"minute": dschema.StringAttribute{Computed: true},
+					"hour":   dschema.StringAttribute{Computed: true},
+					"dom":    dschema.StringAttribute{Computed: true},
+					"month":  dschema.StringAttribute{Computed: true},
+					"dow":    dschema.StringAttribute{Computed: true},
+					"begin":  dschema.StringAttribute{Computed: true},
+					"end":    dschema.StringAttribute{Computed: true},
+				},
+			},
+			"properties_override": dschema.MapAttribute{Computed: true, ElementType: types.StringType},
 		},
 	}
 }

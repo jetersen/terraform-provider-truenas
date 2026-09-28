@@ -51,9 +51,11 @@ Fetches a TrueNAS replication task by name.
 - `periodic_snapshot_tasks` (List of Number)
 - `properties` (Boolean)
 - `properties_exclude` (List of String)
+- `properties_override` (Map of String)
 - `readonly` (String)
 - `recursive` (Boolean)
 - `replicate` (Boolean)
+- `restrict_schedule` (Attributes) (see [below for nested schema](#nestedatt--restrict_schedule))
 - `retention_policy` (String)
 - `retries` (Number)
 - `schedule` (Attributes) (see [below for nested schema](#nestedatt--schedule))
@@ -63,6 +65,20 @@ Fetches a TrueNAS replication task by name.
 - `sudo` (Boolean)
 - `target_dataset` (String)
 - `transport` (String)
+
+<a id="nestedatt--restrict_schedule"></a>
+### Nested Schema for `restrict_schedule`
+
+Read-Only:
+
+- `begin` (String)
+- `dom` (String)
+- `dow` (String)
+- `end` (String)
+- `hour` (String)
+- `minute` (String)
+- `month` (String)
+
 
 <a id="nestedatt--schedule"></a>
 ### Nested Schema for `schedule`

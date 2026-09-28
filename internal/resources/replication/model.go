@@ -21,6 +21,29 @@ var scheduleAttrTypes = map[string]attr.Type{
 	"dow":    types.StringType,
 }
 
+// restrictScheduleAttrTypes is the cron object used by restrict_schedule; it
+// adds begin/end to the base schedule fields.
+var restrictScheduleAttrTypes = map[string]attr.Type{
+	"minute": types.StringType,
+	"hour":   types.StringType,
+	"dom":    types.StringType,
+	"month":  types.StringType,
+	"dow":    types.StringType,
+	"begin":  types.StringType,
+	"end":    types.StringType,
+}
+
+// RestrictScheduleModel maps to the nested "restrict_schedule" object.
+type RestrictScheduleModel struct {
+	Minute types.String `tfsdk:"minute"`
+	Hour   types.String `tfsdk:"hour"`
+	Dom    types.String `tfsdk:"dom"`
+	Month  types.String `tfsdk:"month"`
+	Dow    types.String `tfsdk:"dow"`
+	Begin  types.String `tfsdk:"begin"`
+	End    types.String `tfsdk:"end"`
+}
+
 // ScheduleModel maps to the nested "schedule" attribute.
 type ScheduleModel struct {
 	Minute types.String `tfsdk:"minute"`
@@ -82,6 +105,10 @@ type ReplicationModel struct {
 	EncryptionKey         types.String `tfsdk:"encryption_key"` // write-only
 	EncryptionKeyFormat   types.String `tfsdk:"encryption_key_format"`
 	EncryptionKeyLocation types.String `tfsdk:"encryption_key_location"`
+
+	// Additional scheduling / property controls (coverage audit).
+	RestrictSchedule   types.Object `tfsdk:"restrict_schedule"`   // cron + begin/end; null when unset
+	PropertiesOverride types.Map    `tfsdk:"properties_override"` // map[string]string
 }
 
 // embeddedTask is the shape of an embedded periodic snapshot task object
@@ -145,6 +172,17 @@ type replicationAPI struct {
 	EncryptionInherit     *bool   `json:"encryption_inherit"`
 	EncryptionKeyFormat   *string `json:"encryption_key_format"`
 	EncryptionKeyLocation *string `json:"encryption_key_location"`
+
+	RestrictSchedule *struct {
+		Minute string `json:"minute"`
+		Hour   string `json:"hour"`
+		Dom    string `json:"dom"`
+		Month  string `json:"month"`
+		Dow    string `json:"dow"`
+		Begin  string `json:"begin"`
+		End    string `json:"end"`
+	} `json:"restrict_schedule"`
+	PropertiesOverride map[string]string `json:"properties_override"`
 }
 
 // sshCredentialsID decodes the ssh_credentials field, which the API may
@@ -351,6 +389,36 @@ func responseToModel(ctx context.Context, api *replicationAPI, m *ReplicationMod
 	m.EncryptionKeyFormat = stringPtrToValue(api.EncryptionKeyFormat)
 	m.EncryptionKeyLocation = stringPtrToValue(api.EncryptionKeyLocation)
 
+	if api.RestrictSchedule != nil {
+		nullIfEmpty := func(s string) types.String {
+			if s == "" {
+				return types.StringNull()
+			}
+			return types.StringValue(s)
+		}
+		rsObj, drs := types.ObjectValueFrom(ctx, restrictScheduleAttrTypes, RestrictScheduleModel{
+			Minute: types.StringValue(api.RestrictSchedule.Minute),
+			Hour:   types.StringValue(api.RestrictSchedule.Hour),
+			Dom:    types.StringValue(api.RestrictSchedule.Dom),
+			Month:  types.StringValue(api.RestrictSchedule.Month),
+			Dow:    types.StringValue(api.RestrictSchedule.Dow),
+			Begin:  nullIfEmpty(api.RestrictSchedule.Begin),
+			End:    nullIfEmpty(api.RestrictSchedule.End),
+		})
+		diags.Append(drs...)
+		m.RestrictSchedule = rsObj
+	} else {
+		m.RestrictSchedule = types.ObjectNull(restrictScheduleAttrTypes)
+	}
+
+	if api.PropertiesOverride != nil {
+		poMap, dpo := types.MapValueFrom(ctx, types.StringType, api.PropertiesOverride)
+		diags.Append(dpo...)
+		m.PropertiesOverride = poMap
+	} else {
+		m.PropertiesOverride = types.MapNull(types.StringType)
+	}
+
 	return diags
 }
 
@@ -472,6 +540,34 @@ func (m *ReplicationModel) apiPayload(ctx context.Context) (map[string]any, diag
 	}
 	if !m.EncryptionKeyLocation.IsNull() && !m.EncryptionKeyLocation.IsUnknown() {
 		p["encryption_key_location"] = m.EncryptionKeyLocation.ValueString()
+	}
+
+	if !m.RestrictSchedule.IsNull() && !m.RestrictSchedule.IsUnknown() {
+		var rs RestrictScheduleModel
+		diags.Append(m.RestrictSchedule.As(ctx, &rs, basetypes.ObjectAsOptions{})...)
+		sched := map[string]string{
+			"minute": rs.Minute.ValueString(),
+			"hour":   rs.Hour.ValueString(),
+			"dom":    rs.Dom.ValueString(),
+			"month":  rs.Month.ValueString(),
+			"dow":    rs.Dow.ValueString(),
+		}
+		// begin/end are optional; only include when set.
+		if !rs.Begin.IsNull() && !rs.Begin.IsUnknown() && rs.Begin.ValueString() != "" {
+			sched["begin"] = rs.Begin.ValueString()
+		}
+		if !rs.End.IsNull() && !rs.End.IsUnknown() && rs.End.ValueString() != "" {
+			sched["end"] = rs.End.ValueString()
+		}
+		p["restrict_schedule"] = sched
+	}
+	if !m.PropertiesOverride.IsNull() && !m.PropertiesOverride.IsUnknown() {
+		var po map[string]string
+		diags.Append(m.PropertiesOverride.ElementsAs(ctx, &po, false)...)
+		if po == nil {
+			po = map[string]string{}
+		}
+		p["properties_override"] = po
 	}
 
 	// compression / speed_limit: SSH-only, nullable on the wire. Always
