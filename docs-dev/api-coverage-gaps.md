@@ -74,3 +74,11 @@ NOT covered by this pass:
 4. `pool` encryption + dedup + checksum.
 5. `cloudsync` rclone options.
 6. The tail (`network_interface`, `user` [done], `group`, `iscsi_global`, `periodic_snapshot`, `directoryservices.force`).
+
+## Pool (C) — findings (2026-09-28)
+
+Investigated live on 25.10.3.1 + 27.0. Most pool "gaps" are not viable:
+- `deduplication` / `checksum`: create-only, read back as `None` on `pool.query`; and redundant — set them on the pool's root dataset via `truenas_dataset.dedup`/`checksum` (shipped). Omit.
+- `all_sed`: rejected on both create and update on 25.10 ("Extra inputs are not permitted") — 27.0+ only — and needs self-encrypting-drive hardware to test. Omit.
+- `dedup_table_quota` / `dedup_table_quota_value`: read semantics differ by version — 25.10 returns the numeric quota as the `dedup_table_quota` value, 27.0 returns the `AUTO`/`CUSTOM` enum — so it does not round-trip cleanly. Omit unless normalized per-version.
+- `encryption` / `encryption_options`: a real create-only feature, but `pool.query` returns `None` for it even on an encrypted pool (the encryption is on the root dataset, observable via `truenas_dataset.encrypted`). Needs preserve-config + write-only + RequiresReplace modeling (not read back). A focused follow-up.
