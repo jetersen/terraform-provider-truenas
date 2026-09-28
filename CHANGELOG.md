@@ -6,6 +6,8 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-09-28
+
 ### Added
 - `truenas_smb_share_acl`: new resource (and matching data source) managing an
   SMB share's share-level ACL via `sharing.smb.setacl` / `getacl`, keyed by
