@@ -6,6 +6,25 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+- `truenas_smb_share`: a typed `options` object exposing the full
+  purpose-specific SMB settings (the discriminated `options` union on TrueNAS
+  26.0+/27.0), for **every** purpose — e.g. `TIMEMACHINE_SHARE`'s
+  `auto_dataset_creation` / `auto_snapshot` / `dataset_naming_schema`,
+  `DEFAULT_SHARE`/`MULTIPROTOCOL_SHARE`/etc. `hostsallow` / `hostsdeny` /
+  `aapl_name_mangling`, `TIME_LOCKED_SHARE`'s `grace_period`,
+  `PRIVATE_DATASETS_SHARE`'s `auto_quota`, and `EXTERNAL_SHARE`'s `remote_path`.
+  Only the fields valid for the chosen `purpose` are sent; the rest read back
+  null. The flat legacy attributes continue to work for `LEGACY_SHARE` and are
+  used as a fallback when the matching `options` field is unset. (GH-21)
+
+### Fixed
+- `truenas_smb_share`: `options` are now read back for **all** purposes, so
+  drift in purpose-specific settings is detected instead of being invisible,
+  and `Create`/`Update` no longer overwrite `options` with just the purpose —
+  which could silently reset settings such as a Time Machine share's
+  `auto_dataset_creation` on an unrelated apply. (GH-21)
+
 ## [1.1.0] - 2026-09-23
 
 ### Added
