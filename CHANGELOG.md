@@ -6,6 +6,17 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-09-28
+
+### Fixed
+- `truenas_user`: the `webshare` attribute added in v1.3.0 was sent
+  unconditionally, but the field only exists on TrueNAS 26.0+. On 25.10 this
+  made every `user.create`/`user.update` fail with "Extra inputs are not
+  permitted", breaking the resource entirely. `webshare` is now version-gated:
+  it is dropped from the payload below TrueNAS 26.0, so `truenas_user` works on
+  25.10 again (setting `webshare` there has no effect; the attribute
+  documents the 26.0 requirement). Live-verified on 25.10.3.1, 26.0, and 27.0.
+
 ## [1.3.0] - 2026-09-28
 
 ### Added

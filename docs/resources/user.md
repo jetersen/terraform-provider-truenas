@@ -49,7 +49,7 @@ resource "truenas_user" "deploy" {
 - `sudo_commands` (List of String) List of allowed sudo commands.
 - `sudo_commands_nopasswd` (List of String) List of sudo commands allowed without password.
 - `uid` (Number) UNIX UID for the user (auto-assigned if omitted). Changing this forces a new resource.
-- `webshare` (Boolean) Grant the user access to the web-based file share.
+- `webshare` (Boolean) Grant the user access to the web-based file share. Requires TrueNAS 26.0 or newer; on older releases it is ignored (the API does not accept it).
 
 ### Read-Only
 

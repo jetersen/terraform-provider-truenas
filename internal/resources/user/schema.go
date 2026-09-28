@@ -81,7 +81,7 @@ func resourceSchema() schema.Schema {
 			"webshare": schema.BoolAttribute{
 				Optional:    true,
 				Computed:    true,
-				Description: "Grant the user access to the web-based file share.",
+				Description: "Grant the user access to the web-based file share. Requires TrueNAS 26.0 or newer; on older releases it is ignored (the API does not accept it).",
 			},
 			"ssh_password_enabled": schema.BoolAttribute{
 				Optional:    true,
