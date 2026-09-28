@@ -6,6 +6,13 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Fixed
+- `truenas_smb_share` **data source**: now exposes the `options` object, matching
+  the resource. Previously the data source carried only the flat legacy
+  attributes, so purpose-specific settings (e.g. a `TIMEMACHINE_SHARE`'s
+  `auto_dataset_creation`) could not be read for a share not managed by the same
+  configuration. (GH-21 follow-up)
+
 ## [1.2.0] - 2026-09-28
 
 ### Added
