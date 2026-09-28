@@ -6,6 +6,15 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+- `truenas_pool`: `deduplication` and `checksum` — set the pool's root-dataset
+  ZFS properties at creation (also on the data source). `pool.query` returns
+  null for them, so they are read back source-aware from the pool's root dataset
+  (`pool.dataset.get_instance`), and changes are applied to the root dataset via
+  `pool.dataset.update`. (Not redundant with `truenas_dataset` — the root
+  dataset is created by the pool and isn't independently manageable without
+  import.) (coverage audit)
+
 ## [1.3.1] - 2026-09-28
 
 ### Fixed

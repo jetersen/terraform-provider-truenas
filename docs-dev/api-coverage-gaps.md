@@ -78,7 +78,7 @@ NOT covered by this pass:
 ## Pool (C) — findings (2026-09-28)
 
 Investigated live on 25.10.3.1 + 27.0. Most pool "gaps" are not viable:
-- `deduplication` / `checksum`: create-only, read back as `None` on `pool.query`; and redundant — set them on the pool's root dataset via `truenas_dataset.dedup`/`checksum` (shipped). Omit.
+- `deduplication` / `checksum`: NOW IMPLEMENTED. They set the pool root dataset properties at pool.create; pool.query returns null for them, but they are read back from the root dataset via pool.dataset.get_instance(<poolname>) (source-aware, like truenas_dataset). NOT redundant with truenas_dataset (the root dataset is created by the pool, not independently manageable without import). Updatable via pool.dataset.update on the root.
 - `all_sed`: rejected on both create and update on 25.10 ("Extra inputs are not permitted") — 27.0+ only — and needs self-encrypting-drive hardware to test. Omit.
 - `dedup_table_quota` / `dedup_table_quota_value`: read semantics differ by version — 25.10 returns the numeric quota as the `dedup_table_quota` value, 27.0 returns the `AUTO`/`CUSTOM` enum — so it does not round-trip cleanly. Omit unless normalized per-version.
 - `encryption` / `encryption_options`: a real create-only feature, but `pool.query` returns `None` for it even on an encrypted pool (the encryption is on the root dataset, observable via `truenas_dataset.encrypted`). Needs preserve-config + write-only + RequiresReplace modeling (not read back). A focused follow-up.
