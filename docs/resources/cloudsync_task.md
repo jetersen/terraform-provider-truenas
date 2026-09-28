@@ -58,12 +58,15 @@ resource "truenas_cloudsync_task" "nightly_backup" {
 
 ### Optional
 
+- `create_empty_src_dirs` (Boolean) Create empty directories in the destination that exist in the source.
 - `enabled` (Boolean)
 - `exclude` (List of String)
+- `follow_symlinks` (Boolean) Follow symbolic links and sync the files they point to.
 - `include` (List of String)
 - `post_script` (String)
 - `pre_script` (String)
 - `snapshot` (Boolean)
+- `transfers` (Number) Maximum number of parallel file transfers. Null uses the rclone default.
 
 ### Read-Only
 

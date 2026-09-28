@@ -40,6 +40,11 @@ type CloudSyncModel struct {
 	Exclude      types.List    `tfsdk:"exclude"` // List[String]
 	PreScript    types.String  `tfsdk:"pre_script"`
 	PostScript   types.String  `tfsdk:"post_script"`
+
+	// Transfer options (GH coverage audit).
+	Transfers          types.Int64 `tfsdk:"transfers"` // null = rclone default
+	FollowSymlinks     types.Bool  `tfsdk:"follow_symlinks"`
+	CreateEmptySrcDirs types.Bool  `tfsdk:"create_empty_src_dirs"`
 }
 
 // cloudSyncAPI is the JSON shape returned by cloudsync.* methods.
@@ -69,6 +74,11 @@ type cloudSyncAPI struct {
 	Exclude    []string `json:"exclude"`
 	PreScript  string   `json:"pre_script"`
 	PostScript string   `json:"post_script"`
+
+	// Transfer options (GH coverage audit).
+	Transfers          *int64 `json:"transfers"`
+	FollowSymlinks     bool   `json:"follow_symlinks"`
+	CreateEmptySrcDirs bool   `json:"create_empty_src_dirs"`
 }
 
 // decodeCredentialsID decodes the "credentials" field of a cloudSyncAPI
@@ -187,6 +197,16 @@ func (m *CloudSyncModel) apiPayload(ctx context.Context) (map[string]any, diag.D
 	if !m.Snapshot.IsNull() && !m.Snapshot.IsUnknown() {
 		p["snapshot"] = m.Snapshot.ValueBool()
 	}
+	// Transfer options (GH coverage audit).
+	if !m.Transfers.IsNull() && !m.Transfers.IsUnknown() {
+		p["transfers"] = m.Transfers.ValueInt64()
+	}
+	if !m.FollowSymlinks.IsNull() && !m.FollowSymlinks.IsUnknown() {
+		p["follow_symlinks"] = m.FollowSymlinks.ValueBool()
+	}
+	if !m.CreateEmptySrcDirs.IsNull() && !m.CreateEmptySrcDirs.IsUnknown() {
+		p["create_empty_src_dirs"] = m.CreateEmptySrcDirs.ValueBool()
+	}
 	if !m.PreScript.IsNull() && !m.PreScript.IsUnknown() {
 		p["pre_script"] = m.PreScript.ValueString()
 	}
@@ -224,6 +244,15 @@ func responseToModel(ctx context.Context, api *cloudSyncAPI, m *CloudSyncModel) 
 	}
 	m.Enabled = types.BoolValue(api.Enabled)
 	m.Snapshot = types.BoolValue(api.Snapshot)
+
+	// Transfer options (GH coverage audit).
+	if api.Transfers != nil {
+		m.Transfers = types.Int64Value(*api.Transfers)
+	} else {
+		m.Transfers = types.Int64Null()
+	}
+	m.FollowSymlinks = types.BoolValue(api.FollowSymlinks)
+	m.CreateEmptySrcDirs = types.BoolValue(api.CreateEmptySrcDirs)
 
 	includeList, d := types.ListValueFrom(ctx, types.StringType, api.Include)
 	diags.Append(d...)

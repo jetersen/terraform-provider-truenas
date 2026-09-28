@@ -7,6 +7,10 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [Unreleased]
 
 ### Added
+- `truenas_cloudsync_task`: `transfers` (parallel file transfers), `follow_symlinks`,
+  and `create_empty_src_dirs` (also on the data source). The crypt group
+  (`encryption`/`filename_encryption` with write-only `encryption_password`/`salt`)
+  and `bwlimit` (nested) remain to be modeled. (GH coverage audit)
 - `truenas_replication_task`: eight send-stream and behaviour options —
   `compressed`, `embed`, `large_block` (ZFS send `-c`/`-e`/`-L`),
   `allow_from_scratch`, `hold_pending_snapshots`, `only_matching_schedule`,

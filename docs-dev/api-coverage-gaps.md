@@ -33,7 +33,7 @@ NOT covered by this pass:
 | `dataset` | 20 | aclmode, atime, checksum, copies, deduplication, exec, readonly, recordsize, sync, snapdev, snapdir, special_small_block_size, refreservation, quota_warning, quota_critical, refquota_warning, refquota_critical, managedby, user_properties, user_properties_update |
 | `replication` | 15 | compressed, embed, large_block, encryption, encryption_inherit, encryption_key_format, encryption_key_location, allow_from_scratch, hold_pending_snapshots, logging_level, only_matching_schedule, restrict_schedule, properties_exclude, properties_override, lifetimes |
 | `pool` | 7 | encryption, encryption_options, deduplication, checksum, dedup_table_quota, dedup_table_quota_value, all_sed |
-| `cloudsync` | 7 | args, bwlimit, transfers, encryption, filename_encryption, follow_symlinks, create_empty_src_dirs |
+| `cloudsync` | 4 | bwlimit (nested), encryption + filename_encryption (crypt group, with write-only encryption_password/salt) — remaining |
 | `periodic_snapshot` | 1 | fixate_removal_date |
 
 ### Compute / network
@@ -42,7 +42,6 @@ NOT covered by this pass:
 |---|---|---|
 | `vm` | 13 | machine_type, enable_secure_boot, trusted_platform_module, bootloader_ovmf, cpuset, nodeset, pin_vcpus, arch_type, command_line_args, hyperv_enlightenments, hide_from_msr, enable_cpu_topology_extension, suspend_on_snapshot |
 | `network_interface` | 5 | enable_learning, fec_mode, lacpdu_rate, vlan_pcp, xmit_hash_policy |
-| `iscsi_global` | 2 | direct_config, mode |
 
 ### Identity
 
@@ -65,7 +64,7 @@ NOT covered by this pass:
 - Renames: `service.enable`→`enabled`, `certificate.CSR`→`csr`, `app.app_name`→`name`, `app.custom_compose_config`→`custom_compose_config_string`, `cloudsync_credentials.provider`→`provider_config`.
 - Server-generated / read-only: `vm.uuid`.
 - Documented omissions: `certificate.cert_extensions`, `mail.oauth`, `directoryservices.configuration` (modeled as the flattened per-service-type union).
-- Non-functional / deprecated API fields (found on live probe, not real gaps): `nfs.aliases` (API description: "IGNORED for now."), `cloud_backup.args` (API description: "(Slated for removal)."). `user.home_mode` is write-only (accepted but never returned by `user.query`) and is modeled as a write-only attribute rather than Optional+Computed.
+- Non-functional / deprecated API fields (found on live probe, not real gaps): `nfs.aliases` (API description: "IGNORED for now."), `cloud_backup.args` and `cloudsync.args` (both "(Slated for removal)."), `iscsi_global.mode` ("Internal iSCSI operational mode."), `iscsi_global.direct_config` (internal). `user.home_mode` is write-only (accepted but never returned by `user.query`) and is modeled as a write-only attribute rather than Optional+Computed.
 
 ## Priority
 

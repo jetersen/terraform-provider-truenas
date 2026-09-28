@@ -47,12 +47,16 @@ func (d *CloudSyncDataSource) Schema(_ context.Context, _ datasource.SchemaReque
 					"dow":    dschema.StringAttribute{Computed: true},
 				},
 			},
-			"enabled":     dschema.BoolAttribute{Computed: true},
-			"snapshot":    dschema.BoolAttribute{Computed: true},
-			"include":     dschema.ListAttribute{Computed: true, ElementType: types.StringType},
-			"exclude":     dschema.ListAttribute{Computed: true, ElementType: types.StringType},
-			"pre_script":  dschema.StringAttribute{Computed: true},
-			"post_script": dschema.StringAttribute{Computed: true},
+			"enabled":  dschema.BoolAttribute{Computed: true},
+			"snapshot": dschema.BoolAttribute{Computed: true},
+			// Transfer options (GH coverage audit).
+			"transfers":             dschema.Int64Attribute{Computed: true},
+			"follow_symlinks":       dschema.BoolAttribute{Computed: true},
+			"create_empty_src_dirs": dschema.BoolAttribute{Computed: true},
+			"include":               dschema.ListAttribute{Computed: true, ElementType: types.StringType},
+			"exclude":               dschema.ListAttribute{Computed: true, ElementType: types.StringType},
+			"pre_script":            dschema.StringAttribute{Computed: true},
+			"post_script":           dschema.StringAttribute{Computed: true},
 		},
 	}
 }

@@ -22,10 +22,12 @@ Fetches a TrueNAS cloud sync task by description. Cloud sync tasks have no name 
 ### Read-Only
 
 - `attributes` (String)
+- `create_empty_src_dirs` (Boolean)
 - `credentials` (Number)
 - `direction` (String)
 - `enabled` (Boolean)
 - `exclude` (List of String)
+- `follow_symlinks` (Boolean)
 - `id` (Number) The ID of this resource.
 - `include` (List of String)
 - `path` (String)
@@ -34,6 +36,7 @@ Fetches a TrueNAS cloud sync task by description. Cloud sync tasks have no name 
 - `schedule` (Attributes) (see [below for nested schema](#nestedatt--schedule))
 - `snapshot` (Boolean)
 - `transfer_mode` (String)
+- `transfers` (Number)
 
 <a id="nestedatt--schedule"></a>
 ### Nested Schema for `schedule`

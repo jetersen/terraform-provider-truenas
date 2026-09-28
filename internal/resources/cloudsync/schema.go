@@ -71,6 +71,31 @@ func resourceSchema() schema.Schema {
 					boolplanmodifier.UseStateForUnknown(),
 				},
 			},
+			// Transfer options (GH coverage audit).
+			"transfers": schema.Int64Attribute{
+				Optional:    true,
+				Computed:    true,
+				Description: "Maximum number of parallel file transfers. Null uses the rclone default.",
+				PlanModifiers: []planmodifier.Int64{
+					int64planmodifier.UseStateForUnknown(),
+				},
+			},
+			"follow_symlinks": schema.BoolAttribute{
+				Optional:    true,
+				Computed:    true,
+				Description: "Follow symbolic links and sync the files they point to.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"create_empty_src_dirs": schema.BoolAttribute{
+				Optional:    true,
+				Computed:    true,
+				Description: "Create empty directories in the destination that exist in the source.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
+			},
 			"include": schema.ListAttribute{
 				Optional:    true,
 				Computed:    true,
