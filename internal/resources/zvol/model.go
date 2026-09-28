@@ -1,0 +1,153 @@
+// Copyright TrueNAS 2026
+// SPDX-License-Identifier: MPL-2.0
+
+package zvol
+
+import (
+	"strings"
+
+	"github.com/hashicorp/terraform-plugin-framework/types"
+)
+
+// ZvolModel is the Terraform state/plan model for a TrueNAS zvol.
+type ZvolModel struct {
+	ID           types.String `tfsdk:"id"`
+	Name         types.String `tfsdk:"name"`
+	VolSize      types.Int64  `tfsdk:"volsize"`
+	VolBlockSize types.Int64  `tfsdk:"volblocksize"`
+	Compression  types.String `tfsdk:"compression"`
+	Sync         types.String `tfsdk:"sync"`
+	Dedup        types.String `tfsdk:"dedup"`
+	Sparse       types.Bool   `tfsdk:"sparse"`
+	Comments     types.String `tfsdk:"comments"`
+	Pool         types.String `tfsdk:"pool"`
+	Encrypted    types.Bool   `tfsdk:"encrypted"`
+
+	// Source-aware ZFS tuning properties applicable to volumes (coverage audit). Each
+	// reads back null when inherited/default rather than set LOCAL, so an
+	// inherited value is never carried into state and re-sent. See zfsprops.go.
+	Checksum              types.String `tfsdk:"checksum"`
+	ReadOnly              types.String `tfsdk:"readonly"`
+	Snapdev               types.String `tfsdk:"snapdev"`
+	Copies                types.Int64  `tfsdk:"copies"`
+	SpecialSmallBlockSize types.Int64  `tfsdk:"special_small_block_size"`
+	Reservation           types.Int64  `tfsdk:"reservation"`
+	RefReservation        types.Int64  `tfsdk:"refreservation"`
+}
+
+// zvolAPI matches the flat JSON structure returned by pool.dataset.get_instance for zvols.
+type zvolAPI struct {
+	Name      string `json:"name"`
+	Pool      string `json:"pool"`
+	Encrypted bool   `json:"encrypted"`
+
+	Compression struct {
+		Parsed string `json:"parsed"`
+	} `json:"compression"`
+
+	Sync struct {
+		Parsed string `json:"parsed"`
+	} `json:"sync"`
+
+	Dedup struct {
+		Parsed string `json:"parsed"`
+	} `json:"deduplication"` // note: API key is "deduplication", not "dedup"
+
+	VolSize struct {
+		Parsed int64 `json:"parsed"`
+	} `json:"volsize"`
+
+	VolBlockSize struct {
+		Parsed int64 `json:"parsed"`
+	} `json:"volblocksize"`
+
+	// Source-aware ZFS tuning properties (coverage audit); see zfsprops.go.
+	ChecksumP  zfsSourced `json:"checksum"`
+	ReadOnlyP  zfsSourced `json:"readonly"`
+	SnapdevP   zfsSourced `json:"snapdev"`
+	CopiesP    zfsSourced `json:"copies"`
+	SSBSP      zfsSourced `json:"special_small_block_size"`
+	ReservP    zfsSourced `json:"reservation"`
+	RefReservP zfsSourced `json:"refreservation"`
+
+	UserProperties struct {
+		Comments struct {
+			Value string `json:"value"`
+		} `json:"comments"`
+	} `json:"user_properties"`
+}
+
+// apiPayload converts the model to the create/update JSON payload.
+func (m *ZvolModel) apiPayload() map[string]any {
+	p := map[string]any{
+		"name":    m.Name.ValueString(),
+		"type":    "VOLUME",
+		"volsize": m.VolSize.ValueInt64(),
+	}
+	if !m.VolBlockSize.IsNull() && !m.VolBlockSize.IsUnknown() && m.VolBlockSize.ValueInt64() != 0 {
+		p["volblocksize"] = m.VolBlockSize.ValueInt64()
+	}
+	if !m.Compression.IsNull() && !m.Compression.IsUnknown() {
+		p["compression"] = strings.ToUpper(m.Compression.ValueString())
+	}
+	if !m.Sync.IsNull() && !m.Sync.IsUnknown() {
+		p["sync"] = strings.ToUpper(m.Sync.ValueString())
+	}
+	if !m.Dedup.IsNull() && !m.Dedup.IsUnknown() {
+		p["deduplication"] = strings.ToUpper(m.Dedup.ValueString())
+	}
+	if !m.Sparse.IsNull() && !m.Sparse.IsUnknown() {
+		p["sparse"] = m.Sparse.ValueBool()
+	}
+	if !m.Comments.IsNull() && !m.Comments.IsUnknown() {
+		p["comments"] = m.Comments.ValueString()
+	}
+
+	// Source-aware ZFS tuning properties (coverage audit). Only sent when set; an
+	// inherited property reads back null so it never reaches the payload.
+	putEnum(p, "checksum", m.Checksum)
+	putEnum(p, "readonly", m.ReadOnly)
+	putEnum(p, "snapdev", m.Snapdev)
+	putInt(p, "copies", m.Copies)
+	putInt(p, "special_small_block_size", m.SpecialSmallBlockSize)
+	putInt(p, "reservation", m.Reservation)
+	putInt(p, "refreservation", m.RefReservation)
+	return p
+}
+
+// responseToModel populates m from the API response. Sparse is write-only
+// (not returned by the API) so the plan/state value is preserved as-is.
+func responseToModel(api *zvolAPI, m *ZvolModel) {
+	m.ID = types.StringValue(api.Name)
+	m.Name = types.StringValue(api.Name)
+	m.Pool = types.StringValue(api.Pool)
+	m.Encrypted = types.BoolValue(api.Encrypted)
+	m.VolSize = types.Int64Value(api.VolSize.Parsed)
+	m.VolBlockSize = types.Int64Value(api.VolBlockSize.Parsed)
+	m.Compression = preserveCase(m.Compression, api.Compression.Parsed)
+	m.Sync = preserveCase(m.Sync, api.Sync.Parsed)
+	m.Dedup = preserveCase(m.Dedup, api.Dedup.Parsed)
+	m.Comments = types.StringValue(api.UserProperties.Comments.Value)
+	// Sparse is write-only (not in API response); preserve plan/state value.
+
+	// Source-aware ZFS tuning properties (coverage audit): recorded only when set LOCAL.
+	m.Checksum = localString(api.ChecksumP)
+	m.ReadOnly = localString(api.ReadOnlyP)
+	m.Snapdev = localString(api.SnapdevP)
+	m.Copies = localInt(api.CopiesP)
+	m.SpecialSmallBlockSize = localInt(api.SSBSP)
+	m.Reservation = localInt(api.ReservP)
+	m.RefReservation = localInt(api.RefReservP)
+}
+
+// preserveCase returns current if it matches apiVal case-insensitively (preserving
+// the user's chosen casing), or a lowercased apiVal otherwise (drift or first read).
+func preserveCase(current types.String, apiVal string) types.String {
+	if current.IsNull() || current.IsUnknown() {
+		return types.StringValue(strings.ToLower(apiVal))
+	}
+	if strings.EqualFold(current.ValueString(), apiVal) {
+		return current
+	}
+	return types.StringValue(strings.ToLower(apiVal))
+}
