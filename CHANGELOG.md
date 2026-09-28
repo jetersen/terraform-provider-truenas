@@ -6,6 +6,8 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-09-28
+
 ### Added
 - Five snapshot **Terraform Actions** (Terraform 1.14+) covering the
   `pool.snapshot.*` operations the provider didn't expose:
