@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
@@ -17,6 +18,7 @@ import (
 var _ resource.Resource = &SMBShareACLResource{}
 var _ resource.ResourceWithImportState = &SMBShareACLResource{}
 var _ resource.ResourceWithIdentity = &SMBShareACLResource{}
+var _ resource.ResourceWithValidateConfig = &SMBShareACLResource{}
 
 // SMBShareACLResource implements the truenas_smb_share_acl resource: a
 // declarative, share_name-keyed wrapper around sharing.smb.setacl/getacl.
@@ -79,6 +81,38 @@ func (r *SMBShareACLResource) applyACL(ctx context.Context, m *SMBShareACLModel)
 		return fmt.Errorf("sharing.smb.setacl: %w", err)
 	}
 	return nil
+}
+
+// ValidateConfig enforces at plan time what the server enforces at apply time
+// (verified live: sharing.smb.setacl returns EINVAL "You must set one of ...
+// ae_who_sid, ae_who_str, or ae_who_id" for an entry with no principal). Each
+// entry must set exactly one of the three principal selectors; an unknown
+// (interpolated) value counts as set, so cross-resource references validate.
+func (r *SMBShareACLResource) ValidateConfig(ctx context.Context, req resource.ValidateConfigRequest, resp *resource.ValidateConfigResponse) {
+	var cfg SMBShareACLModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &cfg)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if cfg.ShareACL.IsNull() || cfg.ShareACL.IsUnknown() {
+		return
+	}
+	entries, diags := entriesFromList(ctx, cfg.ShareACL)
+	resp.Diagnostics.Append(diags...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	for i, e := range entries {
+		set := countSelectors(e)
+		if set != 1 {
+			resp.Diagnostics.AddAttributeError(
+				path.Root("share_acl").AtListIndex(i),
+				"Exactly one principal selector required",
+				fmt.Sprintf("share_acl entry %d must set exactly one of ae_who_sid, ae_who_id, or "+
+					"ae_who_str (got %d). The server rejects any other combination.", i, set),
+			)
+		}
+	}
 }
 
 func (r *SMBShareACLResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {

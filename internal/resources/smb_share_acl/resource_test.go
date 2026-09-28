@@ -217,6 +217,31 @@ func TestApiEntriesToList_WhoIDOnly(t *testing.T) {
 	}
 }
 
+func TestCountSelectors(t *testing.T) {
+	none := smbAclEntryModel{AeWhoSID: types.StringNull(), AeWhoStr: types.StringNull(), AeWhoID: types.ObjectNull(smbAclWhoIDAttrTypes)}
+	if got := countSelectors(none); got != 0 {
+		t.Errorf("no selector: got %d, want 0", got)
+	}
+	sid := none
+	sid.AeWhoSID = types.StringValue("S-1-1-0")
+	if got := countSelectors(sid); got != 1 {
+		t.Errorf("sid only: got %d, want 1", got)
+	}
+	two := sid
+	two.AeWhoID = types.ObjectValueMust(smbAclWhoIDAttrTypes, map[string]attr.Value{
+		"id_type": types.StringValue("GROUP"), "id": types.Int64Value(545),
+	})
+	if got := countSelectors(two); got != 2 {
+		t.Errorf("two selectors: got %d, want 2", got)
+	}
+	// unknown counts as set (cross-resource reference)
+	unk := none
+	unk.AeWhoStr = types.StringUnknown()
+	if got := countSelectors(unk); got != 1 {
+		t.Errorf("unknown selector: got %d, want 1", got)
+	}
+}
+
 func TestDefaultShareACLPayload(t *testing.T) {
 	p := defaultShareACLPayload("share1")
 	if p["share_name"] != "share1" {

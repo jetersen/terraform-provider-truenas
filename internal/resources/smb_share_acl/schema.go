@@ -56,10 +56,12 @@ func resourceSchema() schema.Schema {
 							Required: true,
 							Description: "Permission level: FULL (read, write, execute, delete, write-ACL, " +
 								"change-owner), CHANGE (read, write, execute, delete), or READ (read, execute). " +
-								"CUSTOM may appear on read if the share ACL was edited outside TrueNAS's supported " +
-								"means; it is not a valid value to set - reset such an entry to a supported level.",
+								"The API also reports CUSTOM when a share ACL was edited outside TrueNAS's " +
+								"supported means; CUSTOM cannot be set (sharing.smb.setacl rejects it, verified " +
+								"live), so it is not an accepted value here - if a share drifts to CUSTOM, reset " +
+								"the entry to FULL, CHANGE, or READ.",
 							Validators: []validator.String{
-								stringvalidator.OneOf("FULL", "CHANGE", "READ", "CUSTOM"),
+								stringvalidator.OneOf("FULL", "CHANGE", "READ"),
 							},
 						},
 						"ae_type": schema.StringAttribute{

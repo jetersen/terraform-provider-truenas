@@ -252,6 +252,22 @@ func apiEntriesToList(ctx context.Context, api []smbAclEntryAPI) (types.List, di
 // idFor returns the resource id / identity for a share name.
 func idFor(shareName string) string { return shareName }
 
+// countSelectors counts how many principal selectors an entry sets. An unknown
+// (interpolated) value counts as set so cross-resource references validate.
+func countSelectors(e smbAclEntryModel) int {
+	n := 0
+	if !e.AeWhoSID.IsNull() {
+		n++
+	}
+	if !e.AeWhoStr.IsNull() {
+		n++
+	}
+	if !e.AeWhoID.IsNull() {
+		n++
+	}
+	return n
+}
+
 // diagText flattens diagnostics into a single string for wrapping in an error.
 func diagText(diags diag.Diagnostics) string {
 	if !diags.HasError() {
