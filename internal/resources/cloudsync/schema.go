@@ -96,6 +96,55 @@ func resourceSchema() schema.Schema {
 					boolplanmodifier.UseStateForUnknown(),
 				},
 			},
+			// Client-side encryption (rclone crypt).
+			"encryption": schema.BoolAttribute{
+				Optional:    true,
+				Computed:    true,
+				Description: "Encrypt file contents before uploading (rclone crypt). Requires encryption_password.",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"filename_encryption": schema.BoolAttribute{
+				Optional:    true,
+				Computed:    true,
+				Description: "Also encrypt file and directory names (only meaningful when encryption is enabled).",
+				PlanModifiers: []planmodifier.Bool{
+					boolplanmodifier.UseStateForUnknown(),
+				},
+			},
+			"encryption_password": schema.StringAttribute{
+				Optional:    true,
+				Sensitive:   true,
+				WriteOnly:   true,
+				Description: "Password for client-side encryption. Write-only: never stored in Terraform state or read back. Requires Terraform >= 1.11.",
+			},
+			"encryption_salt": schema.StringAttribute{
+				Optional:    true,
+				Sensitive:   true,
+				WriteOnly:   true,
+				Description: "Salt for client-side encryption key derivation. Write-only: never stored in Terraform state or read back. Requires Terraform >= 1.11.",
+			},
+			"bwlimit": schema.ListNestedAttribute{
+				Optional:    true,
+				Computed:    true,
+				Description: "Bandwidth-limit schedule. Each entry sets a limit that takes effect at a time of day.",
+				PlanModifiers: []planmodifier.List{
+					listplanmodifier.UseStateForUnknown(),
+				},
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"time": schema.StringAttribute{
+							Required:    true,
+							Description: "Time of day the limit takes effect, 24-hour \"HH:MM\" (e.g. \"18:00\").",
+						},
+						"bandwidth": schema.Int64Attribute{
+							Optional:    true,
+							Description: "Bandwidth limit in bytes per second. Null/omitted means no limit from this time.",
+						},
+					},
+				},
+			},
 			"include": schema.ListAttribute{
 				Optional:    true,
 				Computed:    true,

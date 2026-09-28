@@ -53,10 +53,21 @@ func (d *CloudSyncDataSource) Schema(_ context.Context, _ datasource.SchemaReque
 			"transfers":             dschema.Int64Attribute{Computed: true},
 			"follow_symlinks":       dschema.BoolAttribute{Computed: true},
 			"create_empty_src_dirs": dschema.BoolAttribute{Computed: true},
-			"include":               dschema.ListAttribute{Computed: true, ElementType: types.StringType},
-			"exclude":               dschema.ListAttribute{Computed: true, ElementType: types.StringType},
-			"pre_script":            dschema.StringAttribute{Computed: true},
-			"post_script":           dschema.StringAttribute{Computed: true},
+			"encryption":            dschema.BoolAttribute{Computed: true},
+			"filename_encryption":   dschema.BoolAttribute{Computed: true},
+			"bwlimit": dschema.ListNestedAttribute{
+				Computed: true,
+				NestedObject: dschema.NestedAttributeObject{
+					Attributes: map[string]dschema.Attribute{
+						"time":      dschema.StringAttribute{Computed: true},
+						"bandwidth": dschema.Int64Attribute{Computed: true},
+					},
+				},
+			},
+			"include":     dschema.ListAttribute{Computed: true, ElementType: types.StringType},
+			"exclude":     dschema.ListAttribute{Computed: true, ElementType: types.StringType},
+			"pre_script":  dschema.StringAttribute{Computed: true},
+			"post_script": dschema.StringAttribute{Computed: true},
 		},
 	}
 }

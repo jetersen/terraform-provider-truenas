@@ -22,11 +22,14 @@ Fetches a TrueNAS cloud sync task by description. Cloud sync tasks have no name 
 ### Read-Only
 
 - `attributes` (String)
+- `bwlimit` (Attributes List) (see [below for nested schema](#nestedatt--bwlimit))
 - `create_empty_src_dirs` (Boolean)
 - `credentials` (Number)
 - `direction` (String)
 - `enabled` (Boolean)
+- `encryption` (Boolean)
 - `exclude` (List of String)
+- `filename_encryption` (Boolean)
 - `follow_symlinks` (Boolean)
 - `id` (Number) The ID of this resource.
 - `include` (List of String)
@@ -37,6 +40,15 @@ Fetches a TrueNAS cloud sync task by description. Cloud sync tasks have no name 
 - `snapshot` (Boolean)
 - `transfer_mode` (String)
 - `transfers` (Number)
+
+<a id="nestedatt--bwlimit"></a>
+### Nested Schema for `bwlimit`
+
+Read-Only:
+
+- `bandwidth` (Number)
+- `time` (String)
+
 
 <a id="nestedatt--schedule"></a>
 ### Nested Schema for `schedule`
