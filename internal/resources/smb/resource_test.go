@@ -784,3 +784,76 @@ func TestResponseToModel_OptionsForNonLegacy(t *testing.T) {
 		t.Error("options.recyclebin should be null for TIMEMACHINE_SHARE")
 	}
 }
+
+// invalidOptionKeys flags options set for the wrong purpose.
+func TestInvalidOptionKeys_MisfiledTimeMachine(t *testing.T) {
+	o := nullOpts()
+	o.AutoDatasetCreation = types.BoolValue(true) // valid for TIMEMACHINE
+	o.Recyclebin = types.BoolValue(true)          // NOT valid for TIMEMACHINE
+	o.GuestOK = types.BoolValue(true)             // NOT valid for TIMEMACHINE
+	m := SMBModel{Purpose: types.StringValue("TIMEMACHINE_SHARE"), Options: optsObject(t, o)}
+
+	purpose, bad, diags := m.invalidOptionKeys(context.Background())
+	if diags.HasError() {
+		t.Fatalf("diags: %v", diags)
+	}
+	if purpose != "TIMEMACHINE_SHARE" {
+		t.Errorf("purpose = %s", purpose)
+	}
+	got := map[string]bool{}
+	for _, k := range bad {
+		got[k] = true
+	}
+	if !got["recyclebin"] || !got["guestok"] {
+		t.Errorf("expected recyclebin+guestok flagged, got %v", bad)
+	}
+	if got["auto_dataset_creation"] {
+		t.Errorf("auto_dataset_creation is valid for TIMEMACHINE, should not be flagged")
+	}
+}
+
+// All-valid options for a purpose produce no findings.
+func TestInvalidOptionKeys_AllValid(t *testing.T) {
+	o := nullOpts()
+	o.HostsAllow = types.ListValueMust(types.StringType, []attr.Value{types.StringValue("10.0.0.0/8")})
+	o.AaplNameMangling = types.BoolValue(true)
+	m := SMBModel{Purpose: types.StringValue("DEFAULT_SHARE"), Options: optsObject(t, o)}
+
+	_, bad, diags := m.invalidOptionKeys(context.Background())
+	if diags.HasError() {
+		t.Fatalf("diags: %v", diags)
+	}
+	if len(bad) != 0 {
+		t.Errorf("expected no findings, got %v", bad)
+	}
+}
+
+// Unset purpose defaults to LEGACY_SHARE, where recyclebin IS valid.
+func TestInvalidOptionKeys_LegacyDefault(t *testing.T) {
+	o := nullOpts()
+	o.Recyclebin = types.BoolValue(true)
+	m := SMBModel{Purpose: types.StringNull(), Options: optsObject(t, o)}
+
+	purpose, bad, diags := m.invalidOptionKeys(context.Background())
+	if diags.HasError() {
+		t.Fatalf("diags: %v", diags)
+	}
+	if purpose != "LEGACY_SHARE" || len(bad) != 0 {
+		t.Errorf("purpose=%s bad=%v; want LEGACY_SHARE with no findings", purpose, bad)
+	}
+}
+
+// Unknown (interpolated) purpose skips validation.
+func TestInvalidOptionKeys_UnknownPurposeSkips(t *testing.T) {
+	o := nullOpts()
+	o.Recyclebin = types.BoolValue(true)
+	m := SMBModel{Purpose: types.StringUnknown(), Options: optsObject(t, o)}
+
+	_, bad, diags := m.invalidOptionKeys(context.Background())
+	if diags.HasError() {
+		t.Fatalf("diags: %v", diags)
+	}
+	if len(bad) != 0 {
+		t.Errorf("unknown purpose should skip; got %v", bad)
+	}
+}

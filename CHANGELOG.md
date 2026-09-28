@@ -6,6 +6,13 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+- `truenas_smb_share`: plan-time validation now rejects an `options` field that
+  is not valid for the share's `purpose` (e.g. `recyclebin` on a
+  `TIMEMACHINE_SHARE`), pointing at the offending attribute and listing the
+  valid options for that purpose. Previously such a field was silently dropped.
+  (GH-21 follow-up)
+
 ### Fixed
 - `truenas_smb_share` **data source**: now exposes the `options` object, matching
   the resource. Previously the data source carried only the flat legacy

@@ -5,6 +5,7 @@ package smb
 
 import (
 	"context"
+	"sort"
 
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
@@ -543,4 +544,87 @@ var validSMBPurposes = map[string]bool{
 	"EXTERNAL_SHARE":         true,
 	"VEEAM_REPOSITORY_SHARE": true,
 	"FCP_SHARE":              true,
+}
+
+// resolveEffectivePurpose returns the purpose the provider will actually send,
+// mirroring apiPayload: LEGACY_SHARE unless a recognized purpose is set.
+func resolveEffectivePurpose(m *SMBModel) string {
+	if v := m.Purpose.ValueString(); !m.Purpose.IsNull() && !m.Purpose.IsUnknown() && validSMBPurposes[v] {
+		return v
+	}
+	return legacySharePurpose
+}
+
+// sortedValidOptions returns the option field names valid for a purpose, sorted.
+func sortedValidOptions(purpose string) []string {
+	keys := make([]string, 0, len(smbOptionFieldsByPurpose[purpose]))
+	for k := range smbOptionFieldsByPurpose[purpose] {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+// invalidOptionKeys returns the wire keys of any options fields that are set in
+// the config but not valid for the effective purpose. Such fields are silently
+// dropped by apiPayload; ValidateConfig surfaces them as plan-time errors so a
+// misfiled or copy-pasted option (e.g. recyclebin on a TIMEMACHINE_SHARE) is
+// caught instead of ignored. Returns (purpose, badKeys). Skips validation when
+// purpose or options are unknown (interpolated).
+func (m *SMBModel) invalidOptionKeys(ctx context.Context) (string, []string, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	purpose := resolveEffectivePurpose(m)
+	if m.Purpose.IsUnknown() || m.Options.IsNull() || m.Options.IsUnknown() {
+		return purpose, nil, diags
+	}
+	valid := smbOptionFieldsByPurpose[purpose]
+
+	var opt SMBOptionsModel
+	diags.Append(m.Options.As(ctx, &opt, basetypes.ObjectAsOptions{})...)
+	if diags.HasError() {
+		return purpose, nil, diags
+	}
+
+	setB := func(v types.Bool) bool { return !v.IsNull() && !v.IsUnknown() }
+	setI := func(v types.Int64) bool { return !v.IsNull() && !v.IsUnknown() }
+	setS := func(v types.String) bool { return !v.IsNull() && !v.IsUnknown() }
+	setL := func(v types.List) bool { return !v.IsNull() && !v.IsUnknown() }
+
+	type field struct {
+		key string
+		set bool
+	}
+	fields := []field{
+		{"recyclebin", setB(opt.Recyclebin)},
+		{"path_suffix", setS(opt.PathSuffix)},
+		{"hostsallow", setL(opt.HostsAllow)},
+		{"hostsdeny", setL(opt.HostsDeny)},
+		{"guestok", setB(opt.GuestOK)},
+		{"streams", setB(opt.Streams)},
+		{"durablehandle", setB(opt.DurableHandle)},
+		{"shadowcopy", setB(opt.Shadowcopy)},
+		{"fsrvp", setB(opt.FSRVP)},
+		{"home", setB(opt.Home)},
+		{"acl", setB(opt.ACL)},
+		{"afp", setB(opt.AFP)},
+		{"timemachine", setB(opt.TimeMachine)},
+		{"timemachine_quota", setI(opt.TimeMachineQuota)},
+		{"aapl_name_mangling", setB(opt.AaplNameMangling)},
+		{"vuid", setS(opt.VUID)},
+		{"auxsmbconf", setS(opt.AuxSMBConf)},
+		{"auto_snapshot", setB(opt.AutoSnapshot)},
+		{"auto_dataset_creation", setB(opt.AutoDatasetCreation)},
+		{"dataset_naming_schema", setS(opt.DatasetNamingSchema)},
+		{"grace_period", setI(opt.GracePeriod)},
+		{"auto_quota", setI(opt.AutoQuota)},
+		{"remote_path", setL(opt.RemotePath)},
+	}
+
+	var bad []string
+	for _, f := range fields {
+		if f.set && !valid[f.key] {
+			bad = append(bad, f.key)
+		}
+	}
+	return purpose, bad, diags
 }
