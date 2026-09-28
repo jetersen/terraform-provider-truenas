@@ -33,6 +33,23 @@ var restrictScheduleAttrTypes = map[string]attr.Type{
 	"end":    types.StringType,
 }
 
+// lifetimeAttrTypes is one entry of the "lifetimes" list (a per-schedule
+// snapshot retention rule, used with retention_policy = CUSTOM).
+var lifetimeAttrTypes = map[string]attr.Type{
+	"schedule":       types.ObjectType{AttrTypes: scheduleAttrTypes},
+	"lifetime_value": types.Int64Type,
+	"lifetime_unit":  types.StringType,
+}
+
+func lifetimeObjectType() types.ObjectType { return types.ObjectType{AttrTypes: lifetimeAttrTypes} }
+
+// LifetimeModel maps to one "lifetimes" entry.
+type LifetimeModel struct {
+	Schedule      types.Object `tfsdk:"schedule"`
+	LifetimeValue types.Int64  `tfsdk:"lifetime_value"`
+	LifetimeUnit  types.String `tfsdk:"lifetime_unit"`
+}
+
 // RestrictScheduleModel maps to the nested "restrict_schedule" object.
 type RestrictScheduleModel struct {
 	Minute types.String `tfsdk:"minute"`
@@ -109,6 +126,7 @@ type ReplicationModel struct {
 	// Additional scheduling / property controls (coverage audit).
 	RestrictSchedule   types.Object `tfsdk:"restrict_schedule"`   // cron + begin/end; null when unset
 	PropertiesOverride types.Map    `tfsdk:"properties_override"` // map[string]string
+	Lifetimes          types.List   `tfsdk:"lifetimes"`           // per-schedule retention (retention_policy=CUSTOM)
 }
 
 // embeddedTask is the shape of an embedded periodic snapshot task object
@@ -183,6 +201,20 @@ type replicationAPI struct {
 		End    string `json:"end"`
 	} `json:"restrict_schedule"`
 	PropertiesOverride map[string]string `json:"properties_override"`
+	Lifetimes          []lifetimeAPI     `json:"lifetimes"`
+}
+
+// lifetimeAPI is the wire shape of one "lifetimes" entry.
+type lifetimeAPI struct {
+	Schedule struct {
+		Minute string `json:"minute"`
+		Hour   string `json:"hour"`
+		Dom    string `json:"dom"`
+		Month  string `json:"month"`
+		Dow    string `json:"dow"`
+	} `json:"schedule"`
+	LifetimeValue int64  `json:"lifetime_value"`
+	LifetimeUnit  string `json:"lifetime_unit"`
 }
 
 // sshCredentialsID decodes the ssh_credentials field, which the API may
@@ -411,12 +443,40 @@ func responseToModel(ctx context.Context, api *replicationAPI, m *ReplicationMod
 		m.RestrictSchedule = types.ObjectNull(restrictScheduleAttrTypes)
 	}
 
-	if api.PropertiesOverride != nil {
+	if len(api.PropertiesOverride) > 0 {
 		poMap, dpo := types.MapValueFrom(ctx, types.StringType, api.PropertiesOverride)
 		diags.Append(dpo...)
 		m.PropertiesOverride = poMap
 	} else {
+		// Server returns {} when unset; keep it null so an unset config (Optional,
+		// non-Computed) does not drift against an empty map.
 		m.PropertiesOverride = types.MapNull(types.StringType)
+	}
+
+	lifetimes := make([]LifetimeModel, 0, len(api.Lifetimes))
+	for _, lt := range api.Lifetimes {
+		schedObj, dsc := types.ObjectValueFrom(ctx, scheduleAttrTypes, ScheduleModel{
+			Minute: types.StringValue(lt.Schedule.Minute),
+			Hour:   types.StringValue(lt.Schedule.Hour),
+			Dom:    types.StringValue(lt.Schedule.Dom),
+			Month:  types.StringValue(lt.Schedule.Month),
+			Dow:    types.StringValue(lt.Schedule.Dow),
+		})
+		diags.Append(dsc...)
+		lifetimes = append(lifetimes, LifetimeModel{
+			Schedule:      schedObj,
+			LifetimeValue: types.Int64Value(lt.LifetimeValue),
+			LifetimeUnit:  types.StringValue(lt.LifetimeUnit),
+		})
+	}
+	// Keep an empty lifetimes null (Optional, non-Computed) to avoid drift
+	// against an unset config.
+	if len(lifetimes) == 0 {
+		m.Lifetimes = types.ListNull(lifetimeObjectType())
+	} else {
+		ltList, dlt := types.ListValueFrom(ctx, lifetimeObjectType(), lifetimes)
+		diags.Append(dlt...)
+		m.Lifetimes = ltList
 	}
 
 	return diags
@@ -568,6 +628,27 @@ func (m *ReplicationModel) apiPayload(ctx context.Context) (map[string]any, diag
 			po = map[string]string{}
 		}
 		p["properties_override"] = po
+	}
+	if !m.Lifetimes.IsNull() && !m.Lifetimes.IsUnknown() {
+		var lts []LifetimeModel
+		diags.Append(m.Lifetimes.ElementsAs(ctx, &lts, false)...)
+		out := make([]map[string]any, 0, len(lts))
+		for _, lt := range lts {
+			var sched ScheduleModel
+			diags.Append(lt.Schedule.As(ctx, &sched, basetypes.ObjectAsOptions{})...)
+			out = append(out, map[string]any{
+				"schedule": map[string]string{
+					"minute": sched.Minute.ValueString(),
+					"hour":   sched.Hour.ValueString(),
+					"dom":    sched.Dom.ValueString(),
+					"month":  sched.Month.ValueString(),
+					"dow":    sched.Dow.ValueString(),
+				},
+				"lifetime_value": lt.LifetimeValue.ValueInt64(),
+				"lifetime_unit":  lt.LifetimeUnit.ValueString(),
+			})
+		}
+		p["lifetimes"] = out
 	}
 
 	// compression / speed_limit: SSH-only, nullable on the wire. Always

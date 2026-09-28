@@ -39,6 +39,7 @@ Fetches a TrueNAS replication task by name.
 - `large_block` (Boolean)
 - `lifetime_unit` (String)
 - `lifetime_value` (Number)
+- `lifetimes` (Attributes List) (see [below for nested schema](#nestedatt--lifetimes))
 - `logging_level` (String)
 - `name_regex` (String)
 - `naming_schema` (List of String)
@@ -65,6 +66,28 @@ Fetches a TrueNAS replication task by name.
 - `sudo` (Boolean)
 - `target_dataset` (String)
 - `transport` (String)
+
+<a id="nestedatt--lifetimes"></a>
+### Nested Schema for `lifetimes`
+
+Read-Only:
+
+- `lifetime_unit` (String)
+- `lifetime_value` (Number)
+- `schedule` (Attributes) (see [below for nested schema](#nestedatt--lifetimes--schedule))
+
+<a id="nestedatt--lifetimes--schedule"></a>
+### Nested Schema for `lifetimes.schedule`
+
+Read-Only:
+
+- `dom` (String)
+- `dow` (String)
+- `hour` (String)
+- `minute` (String)
+- `month` (String)
+
+
 
 <a id="nestedatt--restrict_schedule"></a>
 ### Nested Schema for `restrict_schedule`

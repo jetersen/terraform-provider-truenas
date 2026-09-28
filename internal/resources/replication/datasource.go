@@ -97,6 +97,25 @@ func (d *ReplicationDataSource) Schema(_ context.Context, _ datasource.SchemaReq
 				},
 			},
 			"properties_override": dschema.MapAttribute{Computed: true, ElementType: types.StringType},
+			"lifetimes": dschema.ListNestedAttribute{
+				Computed: true,
+				NestedObject: dschema.NestedAttributeObject{
+					Attributes: map[string]dschema.Attribute{
+						"schedule": dschema.SingleNestedAttribute{
+							Computed: true,
+							Attributes: map[string]dschema.Attribute{
+								"minute": dschema.StringAttribute{Computed: true},
+								"hour":   dschema.StringAttribute{Computed: true},
+								"dom":    dschema.StringAttribute{Computed: true},
+								"month":  dschema.StringAttribute{Computed: true},
+								"dow":    dschema.StringAttribute{Computed: true},
+							},
+						},
+						"lifetime_value": dschema.Int64Attribute{Computed: true},
+						"lifetime_unit":  dschema.StringAttribute{Computed: true},
+					},
+				},
+			},
 		},
 	}
 }

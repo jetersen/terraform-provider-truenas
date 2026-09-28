@@ -315,6 +315,31 @@ func resourceSchema() schema.Schema {
 				ElementType: types.StringType,
 				Description: "ZFS properties to force to specific values on the target datasets (property name -> value).",
 			},
+			"lifetimes": schema.ListNestedAttribute{
+				Optional:    true,
+				Description: "Per-schedule snapshot retention rules on the target (used with retention_policy = CUSTOM). Each rule keeps snapshots matching its schedule for lifetime_value lifetime_units.",
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"schedule": schema.SingleNestedAttribute{
+							Required:    true,
+							Description: "Cron schedule this retention rule applies to.",
+							Attributes: map[string]schema.Attribute{
+								"minute": schema.StringAttribute{Required: true},
+								"hour":   schema.StringAttribute{Required: true},
+								"dom":    schema.StringAttribute{Required: true},
+								"month":  schema.StringAttribute{Required: true},
+								"dow":    schema.StringAttribute{Required: true},
+							},
+						},
+						"lifetime_value": schema.Int64Attribute{Required: true, Description: "How many lifetime_units to keep matching snapshots."},
+						"lifetime_unit": schema.StringAttribute{
+							Required:    true,
+							Description: "HOUR, DAY, WEEK, MONTH, or YEAR.",
+							Validators:  []validator.String{stringvalidator.OneOf("HOUR", "DAY", "WEEK", "MONTH", "YEAR")},
+						},
+					},
+				},
+			},
 		},
 	}
 }

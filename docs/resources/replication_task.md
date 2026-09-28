@@ -74,6 +74,7 @@ resource "truenas_replication_task" "local_backup" {
 - `large_block` (Boolean) Enable large-block ZFS send streams (zfs send -L).
 - `lifetime_unit` (String) HOUR, DAY, WEEK, MONTH, or YEAR. Unset ("") when retention_policy is not CUSTOM.
 - `lifetime_value` (Number) Retention lifetime value. Unset (0) when retention_policy is not CUSTOM.
+- `lifetimes` (Attributes List) Per-schedule snapshot retention rules on the target (used with retention_policy = CUSTOM). Each rule keeps snapshots matching its schedule for lifetime_value lifetime_units. (see [below for nested schema](#nestedatt--lifetimes))
 - `logging_level` (String) Log verbosity for task execution, e.g. DEBUG, INFO, WARNING, ERROR. Null uses the system default.
 - `name_regex` (String) Regular expression matching snapshot names to replicate. Mutually exclusive with naming_schema/also_include_naming_schema.
 - `naming_schema` (List of String) Naming schemas of snapshots to replicate. Mutually exclusive with name_regex.
@@ -100,6 +101,28 @@ resource "truenas_replication_task" "local_backup" {
 ### Read-Only
 
 - `id` (Number) Numeric replication task ID assigned by TrueNAS.
+
+<a id="nestedatt--lifetimes"></a>
+### Nested Schema for `lifetimes`
+
+Required:
+
+- `lifetime_unit` (String) HOUR, DAY, WEEK, MONTH, or YEAR.
+- `lifetime_value` (Number) How many lifetime_units to keep matching snapshots.
+- `schedule` (Attributes) Cron schedule this retention rule applies to. (see [below for nested schema](#nestedatt--lifetimes--schedule))
+
+<a id="nestedatt--lifetimes--schedule"></a>
+### Nested Schema for `lifetimes.schedule`
+
+Required:
+
+- `dom` (String)
+- `dow` (String)
+- `hour` (String)
+- `minute` (String)
+- `month` (String)
+
+
 
 <a id="nestedatt--restrict_schedule"></a>
 ### Nested Schema for `restrict_schedule`
