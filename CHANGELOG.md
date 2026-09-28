@@ -6,6 +6,8 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-09-28
+
 ### Added
 - `truenas_cloudsync_task`: `transfers` (parallel file transfers), `follow_symlinks`,
   and `create_empty_src_dirs` (also on the data source). The crypt group
