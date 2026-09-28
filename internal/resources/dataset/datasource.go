@@ -53,6 +53,7 @@ func (d *DatasetDataSource) Schema(_ context.Context, _ datasource.SchemaRequest
 			"copies":                   dschema.Int64Attribute{Computed: true},
 			"special_small_block_size": dschema.Int64Attribute{Computed: true},
 			"refreservation":           dschema.Int64Attribute{Computed: true},
+			"xattr":                    dschema.StringAttribute{Computed: true},
 			"mountpoint":               dschema.StringAttribute{Computed: true},
 			"encrypted":                dschema.BoolAttribute{Computed: true},
 			"pool":                     dschema.StringAttribute{Computed: true},

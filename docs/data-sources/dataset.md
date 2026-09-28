@@ -46,3 +46,4 @@ Fetches a TrueNAS dataset by name.
 - `sync` (String)
 - `type` (String)
 - `volsize` (Number)
+- `xattr` (String)

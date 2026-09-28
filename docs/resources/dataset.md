@@ -81,3 +81,4 @@ resource "truenas_dataset" "media" {
 - `id` (String) Dataset name (used as Terraform ID).
 - `mountpoint` (String) Dataset mountpoint path.
 - `pool` (String) Name of the pool containing this dataset.
+- `xattr` (String) ZFS extended-attribute storage mode: SA (system-attribute), ON/DIR (directory-based), or OFF. Read-only — TrueNAS does not expose xattr in the writable create/update API, so it is set at dataset creation or inherited and only surfaced here for reading and drift-awareness.

@@ -53,6 +53,12 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   property reads back as unset, reverting a locally-set value to inherited
   cannot be expressed by removing it from the configuration — change it out of
   band and refresh. (GH-16)
+- `truenas_dataset`: `xattr` (extended-attribute storage mode: SA / ON / OFF),
+  exposed **read-only** (also on the data source). TrueNAS returns it from
+  `get_instance` but does not accept it in the writable `create`/`update` API
+  (verified live on 25.10 and 27.0), so it can be read and drift-observed but
+  not set. With this, the original dataset ZFS-property request is fully
+  addressed — the other twelve are writable above. (GH-16)
 
 ## [1.2.1] - 2026-09-28
 

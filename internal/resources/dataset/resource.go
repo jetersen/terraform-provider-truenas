@@ -240,6 +240,14 @@ func (r *DatasetResource) responseToModel(api *apiResponse, m *DatasetModel) dia
 	m.Copies = localInt(api.CopiesP)
 	m.SpecialSmallBlockSize = localInt(api.SSBSP)
 	m.RefReservation = localInt(api.RefResP)
+
+	// xattr is read-only: expose the effective value (not source-aware, since
+	// it is never written).
+	if api.XAttrP.Value != nil {
+		m.XAttr = types.StringValue(*api.XAttrP.Value)
+	} else {
+		m.XAttr = types.StringNull()
+	}
 	return nil
 }
 

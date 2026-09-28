@@ -45,6 +45,11 @@ type DatasetModel struct {
 	SpecialSmallBlockSize types.Int64  `tfsdk:"special_small_block_size"`
 	RefReservation        types.Int64  `tfsdk:"refreservation"`
 
+	// XAttr is read-only: ZFS extended-attribute storage mode is returned by
+	// get_instance but is NOT in the writable create/update API (checked live
+	// on 25.10 and 27.0), so it is exposed for reading only, not set.
+	XAttr types.String `tfsdk:"xattr"`
+
 	// Computed
 	MountPoint types.String `tfsdk:"mountpoint"`
 	Encrypted  types.Bool   `tfsdk:"encrypted"`
@@ -169,6 +174,7 @@ type apiResponse struct {
 	CopiesP     zfsSourced `json:"copies"`
 	SSBSP       zfsSourced `json:"special_small_block_size"`
 	RefResP     zfsSourced `json:"refreservation"`
+	XAttrP      zfsSourced `json:"xattr"` // read-only
 
 	// Comments live under user_properties in TrueNAS 24+
 	UserProperties struct {

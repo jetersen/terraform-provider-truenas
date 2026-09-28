@@ -170,6 +170,13 @@ func resourceSchema() schema.Schema {
 					int64planmodifier.UseStateForUnknown(),
 				},
 			},
+			"xattr": schema.StringAttribute{
+				Computed:    true,
+				Description: "ZFS extended-attribute storage mode: SA (system-attribute), ON/DIR (directory-based), or OFF. Read-only — TrueNAS does not expose xattr in the writable create/update API, so it is set at dataset creation or inherited and only surfaced here for reading and drift-awareness.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
+			},
 			"mountpoint": schema.StringAttribute{
 				Computed:    true,
 				Description: "Dataset mountpoint path.",
