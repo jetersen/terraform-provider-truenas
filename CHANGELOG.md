@@ -6,6 +6,19 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.4.2] - 2026-09-29
+
+### Fixed
+- `truenas_vm`: every in-place update failed with
+  `[EINVAL] vm_update.bootloader_ovmf: Extra inputs are not permitted` /
+  `enable_secure_boot: Extra inputs are not permitted`. These two attributes are
+  accepted by `vm.create` but rejected by `vm.update`; the resource sent the
+  same payload for both, so any change to a VM (memory, cores, autostart, …)
+  was rejected and could not be applied. They are now dropped from the update
+  payload and marked create-only (changing either recreates the VM). Verified
+  end-to-end on 27.0: create with the full attribute set, update a subset, and
+  attach disk/NIC/display devices, all with no plan drift.
+
 ## [1.4.1] - 2026-09-29
 
 ### Added

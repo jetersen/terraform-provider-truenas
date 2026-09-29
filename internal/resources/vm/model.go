@@ -138,6 +138,21 @@ func responseToModel(api *vmAPI, m *VMModel) {
 // apiPayload builds the map[string]any payload for vm.create / vm.update.
 // Optional fields are only included when set (non-null, non-unknown), per the
 // TrueNAS API contract (e.g. vcpus: 0 must never be sent explicitly).
+// vmCreateOnlyFields are accepted by vm.create but rejected by vm.update
+// ("Extra inputs are not permitted"). They are dropped from the update payload
+// and marked RequiresReplace in the schema so a change recreates the VM.
+var vmCreateOnlyFields = []string{"bootloader_ovmf", "enable_secure_boot"}
+
+// apiUpdatePayload is apiPayload with the create-only fields removed, for
+// vm.update (which rejects them).
+func (m *VMModel) apiUpdatePayload() map[string]any {
+	p := m.apiPayload()
+	for _, k := range vmCreateOnlyFields {
+		delete(p, k)
+	}
+	return p
+}
+
 func (m *VMModel) apiPayload() map[string]any {
 	p := map[string]any{
 		"name":   m.Name.ValueString(),

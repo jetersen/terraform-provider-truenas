@@ -37,7 +37,7 @@ resource "truenas_vm" "worker" {
 - `arch_type` (String) Guest CPU architecture. Empty/unset uses the host architecture.
 - `autostart` (Boolean) Start this VM automatically at boot.
 - `bootloader` (String) Bootloader type: UEFI, UEFI_CSM.
-- `bootloader_ovmf` (String) OVMF firmware image to use (UEFI bootloader). Empty/unset uses the default.
+- `bootloader_ovmf` (String) OVMF firmware image to use (UEFI bootloader). Empty/unset uses the default. Create-only: changing it recreates the VM.
 - `command_line_args` (String) Extra command-line arguments passed to the VM process.
 - `cores` (Number) Number of cores per virtual CPU.
 - `cpu_mode` (String) CPU mode: CUSTOM, HOST-MODEL, HOST-PASSTHROUGH.
@@ -45,7 +45,7 @@ resource "truenas_vm" "worker" {
 - `cpuset` (String) Physical host CPUs to pin the VM to, e.g. "0-3" or "0,2,4". Requires pin_vcpus for vCPU pinning.
 - `description` (String) Optional VM description.
 - `enable_cpu_topology_extension` (Boolean) Expose an extended CPU topology to the guest.
-- `enable_secure_boot` (Boolean) Enable UEFI Secure Boot.
+- `enable_secure_boot` (Boolean) Enable UEFI Secure Boot. Create-only: changing it recreates the VM.
 - `hide_from_msr` (Boolean) Hide the hypervisor from the guest (for nested virtualisation / GPU passthrough).
 - `hyperv_enlightenments` (Boolean) Enable Hyper-V enlightenments for Windows guests.
 - `machine_type` (String) QEMU machine type, e.g. "q35" or "i440fx". Empty/unset uses the TrueNAS default.
