@@ -50,7 +50,7 @@ func (a *Action) Schema(_ context.Context, _ action.SchemaRequest, resp *action.
 			},
 			"force": schema.BoolAttribute{
 				Optional:    true,
-				Description: "Force the rename (unmount file systems that need unmounting).",
+				Description: "Force the rename, unmounting file systems that need unmounting. TrueNAS refuses a rename without this (it performs no safety checks on the rename), so set it to true unless you have already quiesced the dataset.",
 			},
 		},
 	}

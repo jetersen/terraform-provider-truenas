@@ -39,21 +39,21 @@ make testacc-disruptive
 | `TRUENAS_HA_ALLOWED_ENDPOINT` | — | Required whenever `TRUENAS_HA=1`; must equal `TRUENAS_ENDPOINT` exactly, or the HA tests `t.Fatal` instead of running — same DSCheck-pattern guard as `TRUENAS_DS_ALLOWED_ENDPOINT`, against accidentally hitting a non-disposable HA pair |
 | `TRUENAS_APPS` | unset | Enables the app lifecycle test (pulls container images) |
 | `TRUENAS_ACME` | unset | Enables the live ACME issuance test `TestAccCertificate_acmeIssuance` (drives a real DNS-01 order against a Pebble ACME CA); skips otherwise |
-| `TRUENAS_ACME_DIRECTORY` | — | Required whenever `TRUENAS_ACME=1`; ACME directory URL, e.g. `https://192.168.1.247:14000/dir` (a trailing slash is added if absent — load-bearing for account reuse across re-runs, see MIDDLEWARE-FINDINGS.md) |
-| `TRUENAS_ACME_CHALLTESTSRV` | — | Required whenever `TRUENAS_ACME=1`; pebble-challtestsrv management HTTP base URL, e.g. `http://192.168.1.247:8055` (the DNS-01 shell script POSTs `/set-txt` and `/clear-txt` here) |
+| `TRUENAS_ACME_DIRECTORY` | — | Required whenever `TRUENAS_ACME=1`; ACME directory URL, e.g. `https://pebble.example.com:14000/dir` (a trailing slash is added if absent — load-bearing for account reuse across re-runs, see MIDDLEWARE-FINDINGS.md) |
+| `TRUENAS_ACME_CHALLTESTSRV` | — | Required whenever `TRUENAS_ACME=1`; pebble-challtestsrv management HTTP base URL, e.g. `http://pebble.example.com:8055` (the DNS-01 shell script POSTs `/set-txt` and `/clear-txt` here) |
 | `TRUENAS_ACME_CA_PEM` | — | Required whenever `TRUENAS_ACME=1`; path to (or literal content of) the PEM the ACME **directory endpoint's TLS** is signed by — for Pebble's default setup the self-signed directory cert itself (`openssl s_client -connect <pebble>:14000`), NOT the issuance root from `:15000/roots/0`. Imported into the trusted store so the ACME client trusts the directory |
 | `TRUENAS_DS` | unset | Enables directory-services tests against the Samba AD DC (see below) |
-| `TRUENAS_DS_DOMAIN` | — | AD realm, e.g. `TFTEST.LAN` |
+| `TRUENAS_DS_DOMAIN` | — | AD realm, e.g. `EXAMPLE.LAN` |
 | `TRUENAS_DS_USER` | — | AD admin username, e.g. `Administrator` |
 | `TRUENAS_DS_PASSWORD` | — | AD admin password |
 | `TRUENAS_DS_ALLOWED_ENDPOINT` | — | Required whenever `TRUENAS_DS=1`; must equal `TRUENAS_ENDPOINT` exactly, or the DS tests `t.Fatal` instead of running — a guard against accidentally domain-joining a shared or production box |
 | `TRUENAS_DS_KEYTAB_B64` | unset | Base64 of a real Kerberos keytab (e.g. from `samba-tool domain exportkeytab` on the DC); enables `TestAccKerberosKeytab_basic`, skips otherwise |
-| `TRUENAS_DS_LDAP_URL` | — | Generic-LDAP test VM URL, e.g. `ldap://192.168.1.251` (or `ldaps://192.168.1.251` for TLS) |
-| `TRUENAS_DS_LDAP_BASEDN` | — | LDAP base DN, e.g. `dc=tftest-ldap,dc=lan` |
-| `TRUENAS_DS_LDAP_BINDDN` | — | LDAP bind DN, e.g. `cn=admin,dc=tftest-ldap,dc=lan` |
+| `TRUENAS_DS_LDAP_URL` | — | Generic-LDAP test VM URL, e.g. `ldap://ldap.example.com` (or `ldaps://ldap.example.com` for TLS) |
+| `TRUENAS_DS_LDAP_BASEDN` | — | LDAP base DN, e.g. `dc=example,dc=lan` |
+| `TRUENAS_DS_LDAP_BINDDN` | — | LDAP bind DN, e.g. `cn=admin,dc=example,dc=lan` |
 | `TRUENAS_DS_LDAP_BINDPW` | — | LDAP bind password |
-| `TRUENAS_DS_IPA_TARGET` | — | FreeIPA server hostname, e.g. `ipa.tfipa.lan` |
-| `TRUENAS_DS_IPA_DOMAIN` | — | FreeIPA domain, e.g. `tfipa.lan` (realm `TFIPA.LAN`) |
+| `TRUENAS_DS_IPA_TARGET` | — | FreeIPA server hostname, e.g. `ipa.example.lan` |
+| `TRUENAS_DS_IPA_DOMAIN` | — | FreeIPA domain, e.g. `example.lan` (realm `EXAMPLE.LAN`) |
 | `TRUENAS_DS_IPA_PASSWORD` | — | FreeIPA `admin` password |
 
 Helpers in `internal/acctest`: `PreCheck` (TF_ACC + credentials),
@@ -347,159 +347,74 @@ management access or migrate system state:
 
 Tests gated on `TRUENAS_HA=1` (`failover_config`, `ipmi_lan`, `enclosure`,
 `enclosure_label`; `truecommand_config`/`vmware` are not HA-gated — they run
-on any box) need a licensed Enterprise HA controller pair:
+on any box) need a licensed Enterprise HA controller pair with a BMC/IPMI
+channel and a supported enclosure.
 
-- **Box**: TrueNAS **25.10.4 Enterprise HA** at
-  `wss://10.220.16.188/api/current`, a physical HA controller pair with a
-  BROADCOM VirtualSES H10 enclosure and a physical BMC/IPMI channel.
-  **FULLY DISPOSABLE** — provided by the user specifically for this plan,
-  including real failover events. Not used for anything else; do not treat
-  it as a stable long-lived fixture the way the 25.10 VM or the 26.0 box
-  are.
-- **Credentials**: API key `plan20-ha`, revoked at the end of Plan 20 (see
-  the plan's final task report for revocation evidence — `api_key.query` →
-  find `plan20-ha` → `api_key.delete`, then a fresh auth attempt with the
-  same key confirmed rejected).
 - **Env vars**: `TRUENAS_HA=1` plus `TRUENAS_HA_ALLOWED_ENDPOINT` set to
-  exactly `TRUENAS_ENDPOINT` (`wss://10.220.16.188/api/current`) — enforced
-  by `acctest.HACheck`'s DSCheck-pattern guard, `t.Fatal` on mismatch or
-  omission. `TRUENAS_DISRUPTIVE=1` additionally required for the Tier 2
-  set-and-restore tests (`failover_config` `timeout`, `ipmi_lan` `vlan`,
-  `truecommand_config` `api_key`).
+  exactly `TRUENAS_ENDPOINT` — enforced by `acctest.HACheck`'s DSCheck-pattern
+  guard, `t.Fatal` on mismatch or omission, so an HA suite can never point at
+  the wrong box. `TRUENAS_DISRUPTIVE=1` is additionally required for the
+  Tier 2 set-and-restore tests (`failover_config` `timeout`, `ipmi_lan`
+  `vlan`, `truecommand_config` `api_key`).
 - **Skip behavior on a non-HA box**: `HACheck` probes `failover.licensed`
-  live and `t.Skip`s (not `t.Fatal`s) when false — confirmed running the
-  full HA-gated set against the TrueNAS 26.0 box (unlicensed) with matching
-  `TRUENAS_HA`/`TRUENAS_HA_ALLOWED_ENDPOINT` env vars: all four packages
-  skip cleanly, zero mutating calls made.
-- **Real-failover exercise**: a one-off, scripted (not part of the committed
-  test suite) controlled failover was run against this pair during
-  development — `failover.become_passive` called against the live master
-  (node B) to force a real takeover by node A, polled until
-  `failover.status`/`failover.node` stabilized and
-  `failover.disabled.reasons` cleared, then the box was independently
-  reconfirmed healthy and the `truenas_failover_config` datasource
-  acceptance test re-run unchanged against the now-relocated VIP. Full
-  transcript, including the STCNITH transport-error quirk on a *successful*
-  `become_passive` call, is in `.superpowers/sdd/task-1-report.md`. The pair
-  was left with node A as master / node B as backup (swapped from the
-  original assignment) — disposable per the above, no restoration needed.
+  live and `t.Skip`s (not `t.Fatal`s) when false, so the HA-gated set runs
+  cleanly against an unlicensed box with zero mutating calls.
+- **Use a disposable pair.** These tests can trigger real failover events
+  (`failover.become_passive`) and can swap the master/backup assignment.
+  Never point them at a production or shared HA pair. Revoke any API key
+  created for the run afterward.
 
 ## Directory-services test environment
 
 Tests gated on `TRUENAS_DS=1` (Active Directory join/idmap/etc.) need a real
-domain controller. A dedicated one exists purely for this:
+domain controller — for example a disposable Samba `samba-ad-dc` VM. Point the
+TrueNAS box under test at the DC and supply the realm credentials:
 
-- **VM**: id 210 on Proxmox node `pve`, named `tftest-dc`, static IP
-  `192.168.1.250/24`, Debian 13 (trixie) + Samba 4 (`samba-ad-dc`), 2 vCPU /
-  2 GB RAM / 20 G disk. Login: `ssh root@192.168.1.250` (root's authorized
-  key is the same one used for the other `pve`-hosted test VMs). The
-  TrueNAS 25.10 test VM (id 110, `192.168.1.249`) is a separate, unrelated
-  VM — it must stay running and untouched by DC changes.
-- **Realm**: `TFTEST.LAN`, NetBIOS domain `TFTEST`. The DC's own resolver
-  is pinned to `127.0.0.1` (Samba's internal DNS backend) with search
-  domain `tftest.lan`; `/etc/resolv.conf` on the DC is `chattr +i`-locked
-  so nothing rewrites it back to a DHCP/cloud-init value.
-- **Credentials**: the generated `Administrator` password lives only on
-  `pve`, at `/root/tftest-dc-admin.pass` (root-only, `chmod 600`) — it is
-  intentionally not recorded in this repo. Export it locally as
-  `TRUENAS_DS_PASSWORD` when running DS tests, alongside
-  `TRUENAS_DS_DOMAIN=TFTEST.LAN` and `TRUENAS_DS_USER=Administrator`.
-- **Prerequisite for a DS run**: the TrueNAS box under test must have its
-  nameserver pointed at the DC (`192.168.1.250`) so it can resolve the
-  realm's SRV/A records — the acceptance run flips this via
-  `midclt call network.configuration.update` and must restore the box's
-  original nameserver afterward, pass or fail. Outside of a DS run the
-  TrueNAS box's nameserver is left at its normal value; do not point it at
-  the DC as a standing change.
-- **Disposable-VM guard**: `DSCheck` (`internal/acctest`) requires
+- **Env vars**: `TRUENAS_DS_DOMAIN` (realm, e.g. `EXAMPLE.LAN`),
+  `TRUENAS_DS_USER` (e.g. `Administrator`), `TRUENAS_DS_PASSWORD`.
+- **Prerequisite**: the TrueNAS box under test must have its nameserver
+  pointed at the DC so it can resolve the realm's SRV/A records — the
+  acceptance run flips this via `network.configuration.update` and restores
+  the box's original nameserver afterward, pass or fail.
+- **Disposable-box guard**: `DSCheck` (`internal/acctest`) requires
   `TRUENAS_DS_ALLOWED_ENDPOINT` to be set and to exactly match
   `TRUENAS_ENDPOINT` whenever `TRUENAS_DS=1` — it `t.Fatal`s rather than
-  skipping if the guard is missing or mismatched, since an unintended AD
-  join is far more disruptive than a skipped test.
+  skipping if the guard is missing or mismatched, since an unintended AD join
+  is far more disruptive than a skipped test.
 - **Keytab fixture**: `TestAccKerberosKeytab_basic` additionally needs
-  `TRUENAS_DS_KEYTAB_B64`, a base64-encoded real keytab. Generate one on
-  the DC: `samba-tool domain exportkeytab /tmp/tfacc.keytab
-  --principal=Administrator@TFTEST.LAN` then `base64 -w0 /tmp/tfacc.keytab`.
-  The test self-skips (does not fail) when this var is unset, so plain
-  Tier-1 sweeps stay green without touching the DC.
+  `TRUENAS_DS_KEYTAB_B64`, base64 of a real keytab (e.g. `samba-tool domain
+  exportkeytab /tmp/tfacc.keytab --principal=Administrator@EXAMPLE.LAN` then
+  `base64 -w0 /tmp/tfacc.keytab`). The test self-skips when unset, so plain
+  Tier-1 sweeps stay green without a DC.
 
-### Generic LDAP test VM (RFC2307)
+### Generic LDAP test server (RFC2307)
 
-A second dedicated VM covers plain (non-AD) LDAP directory service testing:
+Plain (non-AD) LDAP directory-service tests need an OpenLDAP (`slapd`) server
+seeded with RFC2307 posix data (posixAccount/posixGroup under an `ou=People`
+/ `ou=Group` tree):
 
-- **VM**: id 211 on `pve`, named `tftest-ldap`, static IP `192.168.1.251/24`,
-  Debian 13 (trixie) + OpenLDAP (`slapd`), 1 vCPU / 1 GB RAM / 10 G disk.
-  Login: `ssh root@192.168.1.251` via `pve` (same authorized key as the
-  other `pve`-hosted test VMs — there is no direct route to this VM's
-  subnet from outside `pve`, so proxy through it: `ssh root@pve ssh
-  root@192.168.1.251 ...`).
-- **Directory**: base DN `dc=tftest-ldap,dc=lan`, admin bind DN
-  `cn=admin,dc=tftest-ldap,dc=lan`. RFC2307 data seeded under
-  `ou=People`/`ou=Group`: `tfuser1` (uidNumber 21001), `tfuser2` (uidNumber
-  21002) as posixAccount+inetOrgPerson, primary group `tfgroup` (gidNumber
-  21100, posixGroup).
-- **TLS**: self-signed cert (`/etc/ldap/ssl/ldap.{crt,key}`, CN
-  `tftest-ldap.lan`). Both `ldaps://` (636) and StartTLS on `ldap://` (389)
-  work; clients must tolerate the self-signed cert (`LDAPTLS_REQCERT=allow`
-  for `ldapsearch`, or set `OPT_X_TLS_REQUIRE_CERT`/`OPT_X_TLS_NEWCTX`
-  globally *before* `ldap.initialize()` for python-ldap clients — those
-  options are process-global, not per-connection).
-- **Credentials**: the generated `cn=admin` password lives only on `pve`,
-  at `/root/tftest-ldap-admin.pass` (root-only, `chmod 600`) — not recorded
-  in this repo. Export it as `TRUENAS_DS_LDAP_BINDPW`, alongside
-  `TRUENAS_DS_LDAP_URL=ldap://192.168.1.251` (or `ldaps://192.168.1.251`),
-  `TRUENAS_DS_LDAP_BASEDN=dc=tftest-ldap,dc=lan`, and
-  `TRUENAS_DS_LDAP_BINDDN=cn=admin,dc=tftest-ldap,dc=lan`.
-- **Verification**: `ldapsearch` against all three access modes (plain,
-  StartTLS, ldaps) from `pve` (the reachable vantage point standing in for
-  "workstation" — this environment's sandbox has no route to the VM subnet)
-  and from the TrueNAS 25.10 test VM. The TrueNAS box has no `ldapsearch`/
-  `ldap-utils` (package management is disabled on TrueNAS appliances), but
-  it does ship `python3-ldap` as a middleware dependency, which works fine
-  for ad hoc verification via a short script.
+- **Env vars**: `TRUENAS_DS_LDAP_URL` (`ldap://host` or `ldaps://host`),
+  `TRUENAS_DS_LDAP_BASEDN` (e.g. `dc=example,dc=lan`),
+  `TRUENAS_DS_LDAP_BINDDN` (e.g. `cn=admin,dc=example,dc=lan`),
+  `TRUENAS_DS_LDAP_BINDPW`.
+- **TLS**: with a self-signed server cert, clients must tolerate it
+  (`LDAPTLS_REQCERT=allow` for `ldapsearch`, or set
+  `OPT_X_TLS_REQUIRE_CERT`/`OPT_X_TLS_NEWCTX` globally *before*
+  `ldap.initialize()` for python-ldap — those options are process-global, not
+  per-connection).
 
-### FreeIPA test VM
+### FreeIPA test server
 
-A third VM covers FreeIPA (identity management combining Kerberos, LDAP,
-and DNS):
+FreeIPA (Kerberos + LDAP + DNS) tests need an `ipa-server` whose own FQDN is
+its hostname and which serves an authoritative DNS zone for its domain
+(install with `ipa-server-install --setup-dns`):
 
-- **VM**: id 212 on `pve`, named `tftest-ipa`, static IP `192.168.1.252/24`,
-  Rocky Linux 9 + `ipa-server`, 2 vCPU / 4 GB RAM / 20 G disk. The Proxmox
-  VM name is `tftest-ipa`, but the OS hostname is pinned to `ipa.tfipa.lan`
-  (`hostnamectl set-hostname` + a matching `/etc/hosts` entry) since
-  FreeIPA requires the server's own FQDN as its hostname. Login: `ssh
-  root@192.168.1.252` via `pve`, same as the LDAP VM above.
-- **Realm**: `TFIPA.LAN`, domain `tfipa.lan`. Installed unattended via
-  `ipa-server-install --realm=TFIPA.LAN --domain=tfipa.lan
-  --hostname=ipa.tfipa.lan --setup-dns --no-forwarders --no-ntp
-  --unattended` with generated Directory Manager and `admin` passwords.
-  `--setup-dns --no-forwarders` gives the VM its own authoritative DNS zone
-  for `tfipa.lan` (including SRV records) without forwarding unrelated
-  queries upstream.
-- **Credentials**: the generated Directory Manager and `admin` passwords
-  live only on `pve`, at `/root/tftest-ipa-admin.pass` (root-only, `chmod
-  600`) — not recorded in this repo. Export the `admin` password as
-  `TRUENAS_DS_IPA_PASSWORD`, alongside `TRUENAS_DS_IPA_TARGET=ipa.tfipa.lan`
-  and `TRUENAS_DS_IPA_DOMAIN=tfipa.lan`.
-- **Verification**: `kinit admin@TFIPA.LAN` + `ipa user-find` on the VM;
-  `host -t SRV _ldap._tcp.tfipa.lan 127.0.0.1` and `host -t SRV
-  _kerberos._tcp.tfipa.lan 127.0.0.1` confirm the DNS zone's SRV records;
-  the same SRV lookups were repeated from the TrueNAS 25.10 test VM
-  querying `192.168.1.252` directly, confirming FreeIPA's DNS answers
-  off-box. The TrueNAS box's own nameserver is left untouched by this
-  verification — pointing it at `192.168.1.252` as a standing change is a
-  later task's concern, not this one.
+- **Env vars**: `TRUENAS_DS_IPA_TARGET` (server FQDN, e.g.
+  `ipa.example.lan`), `TRUENAS_DS_IPA_DOMAIN` (e.g. `example.lan`, realm
+  `EXAMPLE.LAN`), `TRUENAS_DS_IPA_PASSWORD` (the `admin` password).
 
-### Networking quirk shared by all `pve` directory-service VMs
-
-This Proxmox network segment's IPv4 path does not carry working DNS/general
-package-mirror egress for VMs on it (the cloud-init-assigned `nameserver
-192.168.1.1` resolves nothing usable), but IPv6 egress works via SLAAC.
-Debian cloud images resolve fine as-is (mirrors have AAAA records). Rocky
-9's genericcloud image needed `/etc/resolv.conf` pointed at an IPv6
-resolver (`2606:4700:4700::1111` / `2606:4700:4700::1001`) before `dnf`
-would succeed — apply this early on any new Rocky/Alma VM on this segment,
-before running `dnf` or `ipa-server-install`.
+Keep all directory-service credentials out of the repo — supply them through
+the environment at run time.
 
 ## Operational notes
 

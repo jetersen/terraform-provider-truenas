@@ -22,5 +22,5 @@ Renames a dataset (pool.dataset.rename). A dataset managed by truenas_dataset sh
 
 ### Optional
 
-- `force` (Boolean) Force the rename (unmount file systems that need unmounting).
+- `force` (Boolean) Force the rename, unmounting file systems that need unmounting. TrueNAS refuses a rename without this (it performs no safety checks on the rename), so set it to true unless you have already quiesced the dataset.
 - `recursive` (Boolean) Rename descendant datasets too.
