@@ -6,6 +6,15 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+- Eight more **Terraform Actions** for dataset and VM operations that had no
+  provider surface: `truenas_dataset_lock` / `truenas_dataset_unlock`
+  (encrypted-dataset lock/unlock; unlock takes a passphrase or hex key),
+  `truenas_dataset_promote` (promote a clone), `truenas_dataset_rename`,
+  `truenas_dataset_set_quota` (user/group/dataset quotas), `truenas_vm_clone`,
+  `truenas_vm_restart`, and `truenas_vm_reset` (`vm_reset` requires TrueNAS
+  27.0+ and is version-gated). Call shapes live-verified on 25.10.3.1 and 27.0.
+
 ## [1.4.0] - 2026-09-28
 
 ### Added

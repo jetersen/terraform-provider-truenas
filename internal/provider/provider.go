@@ -20,6 +20,11 @@ import (
 	"github.com/truenas/terraform-provider-truenas/internal/actions/app_start"
 	"github.com/truenas/terraform-provider-truenas/internal/actions/app_stop"
 	"github.com/truenas/terraform-provider-truenas/internal/actions/cloudsync_run"
+	"github.com/truenas/terraform-provider-truenas/internal/actions/dataset_lock"
+	"github.com/truenas/terraform-provider-truenas/internal/actions/dataset_promote"
+	"github.com/truenas/terraform-provider-truenas/internal/actions/dataset_rename"
+	"github.com/truenas/terraform-provider-truenas/internal/actions/dataset_set_quota"
+	"github.com/truenas/terraform-provider-truenas/internal/actions/dataset_unlock"
 	"github.com/truenas/terraform-provider-truenas/internal/actions/replication_run"
 	"github.com/truenas/terraform-provider-truenas/internal/actions/scrub_run"
 	"github.com/truenas/terraform-provider-truenas/internal/actions/service_control"
@@ -30,6 +35,9 @@ import (
 	"github.com/truenas/terraform-provider-truenas/internal/actions/snapshot_rollback"
 	"github.com/truenas/terraform-provider-truenas/internal/actions/snapshot_task_run"
 	"github.com/truenas/terraform-provider-truenas/internal/actions/ui_restart"
+	"github.com/truenas/terraform-provider-truenas/internal/actions/vm_clone"
+	"github.com/truenas/terraform-provider-truenas/internal/actions/vm_reset"
+	"github.com/truenas/terraform-provider-truenas/internal/actions/vm_restart"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
 	"github.com/truenas/terraform-provider-truenas/internal/resources/acl_template"
 	"github.com/truenas/terraform-provider-truenas/internal/resources/acme_dns_authenticator"
@@ -457,6 +465,11 @@ func (p *TrueNASProvider) Actions(_ context.Context) []func() action.Action {
 		app_start.New,
 		app_stop.New,
 		cloudsync_run.New,
+		dataset_lock.New,
+		dataset_promote.New,
+		dataset_rename.New,
+		dataset_set_quota.New,
+		dataset_unlock.New,
 		replication_run.New,
 		scrub_run.New,
 		service_control.New,
@@ -467,6 +480,9 @@ func (p *TrueNASProvider) Actions(_ context.Context) []func() action.Action {
 		snapshot_rollback.New,
 		snapshot_task_run.New,
 		ui_restart.New,
+		vm_clone.New,
+		vm_reset.New,
+		vm_restart.New,
 	}
 }
 
