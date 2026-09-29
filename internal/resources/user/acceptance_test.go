@@ -312,3 +312,33 @@ func TestAccUser_identityAfterUpdate(t *testing.T) {
 		},
 	})
 }
+
+// TestAccUserDataSource_basic reads an existing user through the data source.
+// Regression for #23: the data source model carried a write-only home_mode
+// field absent from its schema, so every read failed with "Struct defines
+// fields not found in object: home_mode". There was no data source test before.
+func TestAccUserDataSource_basic(t *testing.T) {
+	username := acctest.RandName("tfaccuserds")
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { acctest.PreCheck(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckUserDestroyed(username),
+		Steps: []resource.TestStep{
+			{
+				Config: acctest.ProviderConfig() + testAccUserConfig(username, "DS Source", "/usr/bin/bash") + `
+data "truenas_user" "by_name" {
+  username   = truenas_user.test.username
+  depends_on = [truenas_user.test]
+}
+`,
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("data.truenas_user.by_name", "username", username),
+					resource.TestCheckResourceAttr("data.truenas_user.by_name", "full_name", "DS Source"),
+					resource.TestCheckResourceAttrSet("data.truenas_user.by_name", "id"),
+					resource.TestCheckResourceAttrSet("data.truenas_user.by_name", "uid"),
+				),
+			},
+		},
+	})
+}

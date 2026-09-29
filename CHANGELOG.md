@@ -6,6 +6,21 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-09-29
+
+### Fixed
+- Data source reads for `truenas_user`, `truenas_cloudsync_task`, and
+  `truenas_replication_task` failed with "mismatch between struct and object:
+  Struct defines fields not found in object" — their data source models carried
+  write-only fields absent from the data source schema (`home_mode` for user;
+  `encryption_password` / `encryption_salt` for cloudsync; `encryption_key` for
+  replication). `truenas_user` drops the stray field from its data source model;
+  cloudsync and replication declare the fields as computed so the shared model
+  matches. Adds a `truenas_user` data source acceptance test (verified on
+  25.10, 26.0, 27.0) and a source guard (`TestDataSourceModelMatchesSchema`)
+  that fails the build if any data source model has a field its schema omits.
+  (#23)
+
 ## [1.5.0] - 2026-09-29
 
 ### Added

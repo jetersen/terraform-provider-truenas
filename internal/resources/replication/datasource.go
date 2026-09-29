@@ -80,9 +80,13 @@ func (d *ReplicationDataSource) Schema(_ context.Context, _ datasource.SchemaReq
 			"logging_level":          dschema.StringAttribute{Computed: true},
 			"properties_exclude":     dschema.ListAttribute{Computed: true, ElementType: types.StringType},
 			// Encryption (encryption_key is write-only, not exposed).
-			"encryption":              dschema.BoolAttribute{Computed: true},
-			"encryption_inherit":      dschema.BoolAttribute{Computed: true},
-			"encryption_key_format":   dschema.StringAttribute{Computed: true},
+			"encryption":            dschema.BoolAttribute{Computed: true},
+			"encryption_inherit":    dschema.BoolAttribute{Computed: true},
+			"encryption_key_format": dschema.StringAttribute{Computed: true},
+			// Write-only on the resource (never returned by the API); declared
+			// Computed here only so the shared model matches the data source
+			// schema. Always null.
+			"encryption_key":          dschema.StringAttribute{Computed: true, Sensitive: true},
 			"encryption_key_location": dschema.StringAttribute{Computed: true},
 			"restrict_schedule": dschema.SingleNestedAttribute{
 				Computed: true,

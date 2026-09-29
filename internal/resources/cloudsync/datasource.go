@@ -55,6 +55,11 @@ func (d *CloudSyncDataSource) Schema(_ context.Context, _ datasource.SchemaReque
 			"create_empty_src_dirs": dschema.BoolAttribute{Computed: true},
 			"encryption":            dschema.BoolAttribute{Computed: true},
 			"filename_encryption":   dschema.BoolAttribute{Computed: true},
+			// Write-only on the resource (never returned by the API); declared
+			// Computed here only so the shared model matches the data source
+			// schema. Always null.
+			"encryption_password": dschema.StringAttribute{Computed: true, Sensitive: true},
+			"encryption_salt":     dschema.StringAttribute{Computed: true, Sensitive: true},
 			"bwlimit": dschema.ListNestedAttribute{
 				Computed: true,
 				NestedObject: dschema.NestedAttributeObject{
