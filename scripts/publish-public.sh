@@ -1,17 +1,25 @@
 #!/usr/bin/env bash
 # Publish the clean snapshot to the PUBLIC repo.
 #
-# Builds a single-commit orphan from main's tree with the internal lab runbook
-# and the publish tooling excluded, and TESTING.md scrubbed of lab topology,
-# then (with --push) force-pushes it to the public repo's main. No history is
-# published. main and the private mirror are untouched.
+# Builds a snapshot of main's tree with the internal lab runbook and the publish
+# tooling excluded, and TESTING.md scrubbed of lab topology, then (with --push)
+# commits it ON TOP of the public repo's current main and pushes without force.
+#
+# History is linear: each release adds one commit to the public repo, so open
+# pull requests keep a valid merge base and are not auto-closed by a rewrite.
+# The published tree is copied, not the private history — no private commits are
+# ever exposed. main and the private mirror are untouched.
+#
+# On the very first publish (public main does not yet exist) the snapshot is an
+# orphan root commit; every publish after that builds on the previous one.
 #
 #   scripts/publish-public.sh          # DRY RUN: build + verify, do not push
-#   scripts/publish-public.sh --push   # also force-push to the public repo
+#   scripts/publish-public.sh --push   # also push to the public repo (no force)
 #
 # Config (env overrides):
 #   PUBLIC_REMOTE  git remote for the public repo (default: publish)
 #   SOURCE_BRANCH  branch to snapshot (default: main)
+#   PUBLISH_MSG    commit message (default: "Release <latest tag on SOURCE_BRANCH>")
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
@@ -39,34 +47,76 @@ if [ -n "$(git status --porcelain)" ]; then
 fi
 git rev-parse --verify --quiet "$SOURCE_BRANCH" >/dev/null || {
   echo "ABORT: no branch '$SOURCE_BRANCH'." >&2; exit 1; }
-if [ "$DO_PUSH" -eq 1 ] && ! git remote get-url "$PUBLIC_REMOTE" >/dev/null 2>&1; then
-  echo "ABORT: no remote '$PUBLIC_REMOTE'. Add it or set PUBLIC_REMOTE." >&2
-  exit 1
+if ! git remote get-url "$PUBLIC_REMOTE" >/dev/null 2>&1; then
+  if [ "$DO_PUSH" -eq 1 ]; then
+    echo "ABORT: no remote '$PUBLIC_REMOTE'. Add it or set PUBLIC_REMOTE." >&2
+    exit 1
+  fi
+  echo "WARN: no remote '$PUBLIC_REMOTE'; dry run treats this as first publish." >&2
+fi
+
+# Commit message: the release tag on SOURCE_BRANCH, else a generic label.
+if [ -z "${PUBLISH_MSG:-}" ]; then
+  if TAG=$(git describe --tags --abbrev=0 "$SOURCE_BRANCH" 2>/dev/null); then
+    PUBLISH_MSG="Release $TAG"
+  else
+    PUBLISH_MSG="Publish snapshot"
+  fi
+fi
+
+# --- locate the public base -----------------------------------------------
+# Fetch the public main so we can build on top of it. If it does not exist
+# yet, this is the first publish and we start an orphan root commit.
+BASE_REF=""
+if git remote get-url "$PUBLIC_REMOTE" >/dev/null 2>&1; then
+  if git fetch --quiet "$PUBLIC_REMOTE" main 2>/dev/null; then
+    BASE_REF="$PUBLIC_REMOTE/main"
+  fi
 fi
 
 START_BRANCH="$(git branch --show-current)"
-# Force the checkout: building the orphan leaves the excluded files in the
-# working tree as untracked, which would make a plain `git checkout` refuse to
-# switch back ("untracked files would be overwritten"). -f restores them from
-# the target branch (same content) so cleanup always lands back on the start.
+# Force the checkout back: building the snapshot leaves the excluded files in
+# the working tree as untracked, which would make a plain `git checkout` refuse
+# to switch back ("untracked files would be overwritten"). -f restores them
+# from the target branch (same content) so cleanup always lands on the start.
 cleanup() { git checkout -qf "$START_BRANCH" 2>/dev/null || git checkout -qf "$SOURCE_BRANCH" 2>/dev/null || true
             git branch -D "$TMP_BRANCH" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 
-# --- build the orphan snapshot from SOURCE_BRANCH's tree ------------------
+# --- build the snapshot from SOURCE_BRANCH's tree -------------------------
 git branch -D "$TMP_BRANCH" >/dev/null 2>&1 || true
-git checkout -q --orphan "$TMP_BRANCH" "$SOURCE_BRANCH"
+if [ -n "$BASE_REF" ]; then
+  # Parent = current public main (ancestry preserved). Overlay SOURCE_BRANCH's
+  # tree exactly: read-tree -u resets index+worktree to the source tree while
+  # HEAD stays at the public commit, so the new commit's parent is public main
+  # and its tree equals scrubbed SOURCE_BRANCH.
+  echo "== building on public base $BASE_REF ($(git rev-parse --short "$BASE_REF")) =="
+  git checkout -q -B "$TMP_BRANCH" "$BASE_REF"
+  git read-tree -u --reset "$SOURCE_BRANCH"
+else
+  # First publish: no public history to build on — orphan root commit.
+  echo "== first publish: no $PUBLIC_REMOTE/main, starting orphan root =="
+  git checkout -q --orphan "$TMP_BRANCH" "$SOURCE_BRANCH"
+fi
 
 for f in "${EXCLUDE[@]}"; do
   git rm --cached --quiet "$f" 2>/dev/null || true
 done
 python3 scripts/scrub-public-testing.py
 git add TESTING.md
-git commit -q -m "Initial commit"
+
+# Nothing changed since the last publish? Skip the empty commit and the push.
+if [ -n "$BASE_REF" ] && git diff --cached --quiet "$BASE_REF" -- ; then
+  echo "== no changes vs $BASE_REF — nothing to publish. =="
+  exit 0
+fi
+
+git commit -q -m "$PUBLISH_MSG"
 
 # --- verify ---------------------------------------------------------------
 echo "== snapshot verification =="
-echo "  commits (want 1): $(git rev-list --count HEAD)"
+echo "  message: $PUBLISH_MSG"
+echo "  public history depth after this commit: $(git rev-list --count HEAD)"
 echo "  author: $(git log -1 --format='%an <%ae>')"
 fail=0
 for f in "${EXCLUDE[@]}"; do
@@ -88,12 +138,15 @@ fi
 
 # --- push (only with --push) ---------------------------------------------
 if [ "$DO_PUSH" -eq 1 ]; then
-  echo "== force-pushing snapshot -> $PUBLIC_REMOTE main =="
-  git push --force "$PUBLIC_REMOTE" "$TMP_BRANCH:main"
-  echo "Published. Public repo main is now the clean snapshot ($(git rev-parse --short HEAD))."
-  echo "NOTE: any pre-existing dependabot branches / closed-PR refs on the public"
-  echo "repo still descend from earlier pushes; clear them via branch delete +"
-  echo "a GitHub Support gc if this repo ever carried full history."
+  echo "== pushing snapshot -> $PUBLIC_REMOTE main (fast-forward, no force) =="
+  # No --force: if public main advanced (a commit landed directly on it), the
+  # push is rejected rather than silently clobbering it. Fetch + re-run then.
+  if ! git push "$PUBLIC_REMOTE" "$TMP_BRANCH:main"; then
+    echo "PUSH REJECTED: $PUBLIC_REMOTE/main moved since fetch. Re-run to rebuild" >&2
+    echo "on the new base, or reconcile the direct commit first." >&2
+    exit 1
+  fi
+  echo "Published. $PUBLIC_REMOTE/main is now $(git rev-parse --short HEAD) on linear history."
 else
   echo "== DRY RUN: snapshot built and verified, NOT pushed. Re-run with --push to publish. =="
 fi
