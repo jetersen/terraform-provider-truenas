@@ -30,7 +30,6 @@ type ZvolModel struct {
 	ReadOnly              types.String `tfsdk:"readonly"`
 	Snapdev               types.String `tfsdk:"snapdev"`
 	Copies                types.Int64  `tfsdk:"copies"`
-	SpecialSmallBlockSize types.Int64  `tfsdk:"special_small_block_size"`
 	Reservation           types.Int64  `tfsdk:"reservation"`
 	RefReservation        types.Int64  `tfsdk:"refreservation"`
 }
@@ -45,13 +44,12 @@ type zvolAPI struct {
 		Parsed string `json:"parsed"`
 	} `json:"compression"`
 
-	Sync struct {
-		Parsed string `json:"parsed"`
-	} `json:"sync"`
-
-	Dedup struct {
-		Parsed string `json:"parsed"`
-	} `json:"deduplication"` // note: API key is "deduplication", not "dedup"
+	// sync/dedup are read source-aware from the "value" field (upper case, e.g.
+	// ALWAYS/ON), not the lower-case "parsed" field, so an imported zvol
+	// round-trips against an upper-case config. The API key for dedup is
+	// "deduplication", not "dedup".
+	SyncP  zfsSourced `json:"sync"`
+	DedupP zfsSourced `json:"deduplication"`
 
 	VolSize struct {
 		Parsed int64 `json:"parsed"`
@@ -66,7 +64,6 @@ type zvolAPI struct {
 	ReadOnlyP  zfsSourced `json:"readonly"`
 	SnapdevP   zfsSourced `json:"snapdev"`
 	CopiesP    zfsSourced `json:"copies"`
-	SSBSP      zfsSourced `json:"special_small_block_size"`
 	ReservP    zfsSourced `json:"reservation"`
 	RefReservP zfsSourced `json:"refreservation"`
 
@@ -78,6 +75,32 @@ type zvolAPI struct {
 }
 
 // apiPayload converts the model to the create/update JSON payload.
+// volblocksizeStr converts a byte count to the string enum pool.dataset.create
+// accepts for volblocksize. Returns "" for a value that is not a valid size.
+func volblocksizeStr(b int64) string {
+	switch b {
+	case 512:
+		return "512"
+	case 1024:
+		return "1K"
+	case 2048:
+		return "2K"
+	case 4096:
+		return "4K"
+	case 8192:
+		return "8K"
+	case 16384:
+		return "16K"
+	case 32768:
+		return "32K"
+	case 65536:
+		return "64K"
+	case 131072:
+		return "128K"
+	}
+	return ""
+}
+
 func (m *ZvolModel) apiPayload() map[string]any {
 	p := map[string]any{
 		"name":    m.Name.ValueString(),
@@ -85,7 +108,11 @@ func (m *ZvolModel) apiPayload() map[string]any {
 		"volsize": m.VolSize.ValueInt64(),
 	}
 	if !m.VolBlockSize.IsNull() && !m.VolBlockSize.IsUnknown() && m.VolBlockSize.ValueInt64() != 0 {
-		p["volblocksize"] = m.VolBlockSize.ValueInt64()
+		// pool.dataset.create wants volblocksize as a string enum ("512", "1K",
+		// … "128K"), not the raw byte count the schema models it as.
+		if s := volblocksizeStr(m.VolBlockSize.ValueInt64()); s != "" {
+			p["volblocksize"] = s
+		}
 	}
 	if !m.Compression.IsNull() && !m.Compression.IsUnknown() {
 		p["compression"] = strings.ToUpper(m.Compression.ValueString())
@@ -109,7 +136,6 @@ func (m *ZvolModel) apiPayload() map[string]any {
 	putEnum(p, "readonly", m.ReadOnly)
 	putEnum(p, "snapdev", m.Snapdev)
 	putInt(p, "copies", m.Copies)
-	putInt(p, "special_small_block_size", m.SpecialSmallBlockSize)
 	putInt(p, "reservation", m.Reservation)
 	putInt(p, "refreservation", m.RefReservation)
 	return p
@@ -125,8 +151,8 @@ func responseToModel(api *zvolAPI, m *ZvolModel) {
 	m.VolSize = types.Int64Value(api.VolSize.Parsed)
 	m.VolBlockSize = types.Int64Value(api.VolBlockSize.Parsed)
 	m.Compression = preserveCase(m.Compression, api.Compression.Parsed)
-	m.Sync = preserveCase(m.Sync, api.Sync.Parsed)
-	m.Dedup = preserveCase(m.Dedup, api.Dedup.Parsed)
+	m.Sync = localString(api.SyncP)
+	m.Dedup = localString(api.DedupP)
 	m.Comments = types.StringValue(api.UserProperties.Comments.Value)
 	// Sparse is write-only (not in API response); preserve plan/state value.
 
@@ -135,13 +161,14 @@ func responseToModel(api *zvolAPI, m *ZvolModel) {
 	m.ReadOnly = localString(api.ReadOnlyP)
 	m.Snapdev = localString(api.SnapdevP)
 	m.Copies = localInt(api.CopiesP)
-	m.SpecialSmallBlockSize = localInt(api.SSBSP)
 	m.Reservation = localInt(api.ReservP)
 	m.RefReservation = localInt(api.RefReservP)
 }
 
-// preserveCase returns current if it matches apiVal case-insensitively (preserving
-// the user's chosen casing), or a lowercased apiVal otherwise (drift or first read).
+// preserveCase returns current if it matches apiVal case-insensitively
+// (preserving the user's chosen casing), or the lower-cased apiVal otherwise.
+// Only compression uses it: the API reports compression in lower case ("lz4"),
+// which matches the conventional config form.
 func preserveCase(current types.String, apiVal string) types.String {
 	if current.IsNull() || current.IsUnknown() {
 		return types.StringValue(strings.ToLower(apiVal))

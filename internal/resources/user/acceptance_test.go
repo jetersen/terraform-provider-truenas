@@ -189,6 +189,9 @@ resource "truenas_user" "test" {
   shell             = %q
   smb               = false
   group_create      = true
+
+  email = "tfacc@example.com"
+  locked = false
 }
 `, username, fullName, shell)
 }
@@ -211,4 +214,75 @@ func testAccCheckUserDestroyed(username string) resource.TestCheckFunc {
 		}
 		return nil
 	}
+}
+
+// TestAccUser_fullSurface exercises the user attributes that need fixtures:
+// group/groups (referenced truenas_group resources), ssh_password_enabled and
+// home_mode (a real home directory on a dataset + a login shell), and webshare
+// (TrueNAS 26.0+, set only when the target supports it).
+func TestAccUser_fullSurface(t *testing.T) {
+	username := acctest.RandName("tfaccuserfs")
+	dsName := fmt.Sprintf("%s/%s", acctest.TestPool(), acctest.RandName("tf-acc-userhome"))
+	gPrimary := acctest.RandName("tfaccgrpp")
+	gAux := acctest.RandName("tfaccgrpa")
+	v26 := acctest.ServerVersionAtLeast(t, 26, 0)
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { acctest.PreCheck(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckUserDestroyed(username),
+		Steps: []resource.TestStep{
+			{
+				Config: acctest.ProviderConfig() + testAccUserFullConfig(username, dsName, gPrimary, gAux, v26),
+				Check: resource.ComposeTestCheckFunc(
+					resource.TestCheckResourceAttr("truenas_user.test", "username", username),
+					resource.TestCheckResourceAttr("truenas_user.test", "ssh_password_enabled", "true"),
+					resource.TestCheckResourceAttrSet("truenas_user.test", "group"),
+					resource.TestCheckResourceAttr("truenas_user.test", "groups.#", "1"),
+				),
+			},
+			{
+				ResourceName:            "truenas_user.test",
+				ImportState:             true,
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"password", "group_create", "home_mode"},
+			},
+		},
+	})
+}
+
+func testAccUserFullConfig(username, dsName, gPrimary, gAux string, v26 bool) string {
+	webshare := ""
+	if v26 {
+		webshare = "\n  webshare = false"
+	}
+	return fmt.Sprintf(`
+resource "truenas_dataset" "home" {
+  name = %q
+}
+
+resource "truenas_group" "primary" {
+  name = %q
+}
+
+resource "truenas_group" "aux" {
+  name = %q
+}
+
+resource "truenas_user" "test" {
+  username             = %q
+  full_name            = "Full Surface"
+  password             = "Tf-Acc-Test-Passw0rd!"
+  password_disabled    = false
+  home                 = truenas_dataset.home.mountpoint
+  home_mode            = "0700"
+  shell                = "/usr/bin/bash"
+  smb                  = false
+  group                = truenas_group.primary.id
+  groups               = [truenas_group.aux.id]
+  ssh_password_enabled = true
+  email                = "tfacc-full@example.com"
+  locked               = false%s
+}
+`, dsName, gPrimary, gAux, username, webshare)
 }

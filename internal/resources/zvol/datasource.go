@@ -43,7 +43,6 @@ func (d *ZvolDataSource) Schema(_ context.Context, _ datasource.SchemaRequest, r
 			"readonly":                 dschema.StringAttribute{Computed: true},
 			"snapdev":                  dschema.StringAttribute{Computed: true},
 			"copies":                   dschema.Int64Attribute{Computed: true},
-			"special_small_block_size": dschema.Int64Attribute{Computed: true},
 			"reservation":              dschema.Int64Attribute{Computed: true},
 			"refreservation":           dschema.Int64Attribute{Computed: true},
 			"pool":                     dschema.StringAttribute{Computed: true},

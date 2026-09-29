@@ -30,7 +30,6 @@ func TestZvolApiPayload_ZFSProps(t *testing.T) {
 		ReadOnly:              types.StringValue("ON"),
 		Snapdev:               types.StringValue("VISIBLE"),
 		Copies:                types.Int64Value(2),
-		SpecialSmallBlockSize: types.Int64Value(0), // meaningful, must be sent
 		RefReservation:        types.Int64Value(1073741824),
 	}
 	p := m.apiPayload()
@@ -42,9 +41,6 @@ func TestZvolApiPayload_ZFSProps(t *testing.T) {
 	}
 	if p["copies"] != int64(2) {
 		t.Errorf("copies = %v", p["copies"])
-	}
-	if v, ok := p["special_small_block_size"]; !ok || v != int64(0) {
-		t.Errorf("ssbs must be sent as 0, got %v ok=%v", v, ok)
 	}
 	if p["refreservation"] != int64(1073741824) {
 		t.Errorf("refreservation = %v", p["refreservation"])
@@ -60,7 +56,6 @@ func TestZvolResponseToModel_SourceAware(t *testing.T) {
 	api.ChecksumP = sourced("SHA256", true, `"sha256"`, "LOCAL")
 	api.ReadOnlyP = sourced("OFF", true, `false`, "INHERITED") // inherited -> null
 	api.CopiesP = sourced("1", true, `1`, "DEFAULT")           // default -> null
-	api.SSBSP = sourced("0", true, `0`, "LOCAL")               // local zero
 
 	var m ZvolModel
 	responseToModel(&api, &m)
@@ -73,8 +68,5 @@ func TestZvolResponseToModel_SourceAware(t *testing.T) {
 	}
 	if !m.Copies.IsNull() {
 		t.Errorf("copies DEFAULT should be null, got %v", m.Copies)
-	}
-	if m.SpecialSmallBlockSize.IsNull() || m.SpecialSmallBlockSize.ValueInt64() != 0 {
-		t.Errorf("ssbs LOCAL 0 should be 0, got %v", m.SpecialSmallBlockSize)
 	}
 }

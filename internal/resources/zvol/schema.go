@@ -109,12 +109,6 @@ func resourceSchema() schema.Schema {
 				Validators:    []validator.Int64{int64validator.Between(1, 3)},
 				PlanModifiers: []planmodifier.Int64{int64planmodifier.UseStateForUnknown()},
 			},
-			"special_small_block_size": schema.Int64Attribute{
-				Optional:      true,
-				Computed:      true,
-				Description:   "Threshold in bytes below which blocks are written to a pool's special allocation-class vdev; 0 disables it. Null (unset) inherits.",
-				PlanModifiers: []planmodifier.Int64{int64planmodifier.UseStateForUnknown()},
-			},
 			"reservation": schema.Int64Attribute{
 				Optional:      true,
 				Computed:      true,

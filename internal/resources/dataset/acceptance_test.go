@@ -31,6 +31,15 @@ func TestAccDataset_basic(t *testing.T) {
 					resource.TestCheckResourceAttr("truenas_dataset.test", "name", name),
 					resource.TestCheckResourceAttr("truenas_dataset.test", "compression", "lz4"),
 					resource.TestCheckResourceAttr("truenas_dataset.test", "comments", "initial comment"),
+					resource.TestCheckResourceAttr("truenas_dataset.test", "aclmode", "PASSTHROUGH"),
+					resource.TestCheckResourceAttr("truenas_dataset.test", "acltype", "nfsv4"),
+					resource.TestCheckResourceAttr("truenas_dataset.test", "atime", "OFF"),
+					resource.TestCheckResourceAttr("truenas_dataset.test", "checksum", "SHA256"),
+					resource.TestCheckResourceAttr("truenas_dataset.test", "copies", "2"),
+					resource.TestCheckResourceAttr("truenas_dataset.test", "dedup", "ON"),
+					resource.TestCheckResourceAttr("truenas_dataset.test", "quota", "2147483648"),
+					resource.TestCheckResourceAttr("truenas_dataset.test", "recordsize", "128K"),
+					resource.TestCheckResourceAttr("truenas_dataset.test", "sync", "ALWAYS"),
 					resource.TestCheckResourceAttrSet("truenas_dataset.test", "mountpoint"),
 					resource.TestCheckResourceAttrSet("truenas_dataset.test", "pool"),
 					resource.TestCheckResourceAttrSet("truenas_dataset.test", "id"),
@@ -55,11 +64,30 @@ func TestAccDataset_basic(t *testing.T) {
 }
 
 func testAccDatasetConfig(name, compression, comments string) string {
+	// Full-surface: every writable ZFS property this resource models is set to a
+	// non-default value so the post-apply plan (and ImportStateVerify) prove each
+	// one round-trips. share_type is write-only (not read back) and left out.
 	return fmt.Sprintf(`
 resource "truenas_dataset" "test" {
   name        = %q
   compression = %q
   comments    = %q
+
+  aclmode                  = "PASSTHROUGH"
+  acltype                  = "nfsv4"
+  atime                    = "OFF"
+  exec                     = "OFF"
+  checksum                 = "SHA256"
+  copies                   = 2
+  dedup                    = "ON"
+  quota                    = 2147483648
+  refquota                 = 1073741824
+  reservation              = 10485760
+  refreservation           = 10485760
+  recordsize               = "128K"
+  snapdir                  = "VISIBLE"
+  special_small_block_size = 0
+  sync                     = "ALWAYS"
 }
 `, name, compression, comments)
 }

@@ -129,6 +129,19 @@ func testAccNFSConfigConfig(v4Domain string) string {
 	return fmt.Sprintf(`
 resource "truenas_nfs_config" "test" {
   v4_domain = %q
+
+  servers           = 8
+  allow_nonroot     = true
+  protocols         = ["NFSV3", "NFSV4"]
+  v4_krb            = false
+  bindip            = ["192.168.1.249"]
+  mountd_port       = 618
+  rpcstatd_port     = 619
+  rpclockd_port     = 620
+  mountd_log        = true
+  statd_lockd_log   = true
+  userd_manage_gids = true
+  rdma              = false
 }
 `, v4Domain)
 }

@@ -125,6 +125,13 @@ resource "truenas_nfs_share" "test" {
   path     = truenas_dataset.fixture.mountpoint
   comment  = %q
   networks = [%s]
+
+  enabled          = true
+  ro               = true
+  hosts            = ["192.168.1.100"]
+  maproot_user     = "root"
+  maproot_group    = "root"
+  expose_snapshots = false
 }
 `, datasetName, comment, networksHCL)
 }

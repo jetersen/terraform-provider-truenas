@@ -6,6 +6,31 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.4.3] - 2026-09-29
+
+### Fixed
+- `truenas_certificate`: setting `digest_algorithm` on a server-generated
+  certificate or CSR (`create_type = CERTIFICATE_CREATE_CSR`) failed the apply
+  with "Provider produced inconsistent result after apply" — the API accepts
+  `digest_algorithm` as a generation input but returns null for a CSR, and the
+  read overwrote the configured value with that null. The read now keeps the
+  configured value when the API omits it (and still reflects the API's value for
+  signed certificates). Found by full-surface acceptance testing.
+- `truenas_zvol`: setting `volblocksize` always failed create — the value was
+  sent as an integer byte count, but `pool.dataset.create` requires a string
+  enum (`"512"`, `"1K"` … `"128K"`). It is now converted, so `volblocksize`
+  works.
+- `truenas_zvol`: `sync` and `dedup` came back lower-cased on import (`ON` →
+  `on`), causing an ImportStateVerify / plan mismatch against an upper-case
+  config. They are now read from the API's source-aware `value` field (the
+  canonical upper-case form), matching how `checksum` already worked.
+
+### Removed
+- `truenas_zvol`: the `special_small_block_size` attribute. `special_small_blocks`
+  is a filesystem-only ZFS property; setting it on a volume always failed with
+  "does not apply to datasets of this type", so the attribute was non-functional.
+  (It remains on `truenas_dataset`, where it applies.)
+
 ## [1.4.2] - 2026-09-29
 
 ### Fixed
