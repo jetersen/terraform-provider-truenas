@@ -50,9 +50,21 @@ type DatasetModel struct {
 	// on 25.10 and 27.0), so it is exposed for reading only, not set.
 	XAttr types.String `tfsdk:"xattr"`
 
+	// Encryption (all create-only; changing any of these recreates the dataset).
+	// encryption_passphrase / encryption_key are write-only: read from config,
+	// never stored in state.
+	Encryption            types.Bool   `tfsdk:"encryption"`
+	InheritEncryption     types.Bool   `tfsdk:"inherit_encryption"`
+	EncryptionAlgorithm   types.String `tfsdk:"encryption_algorithm"`
+	EncryptionGenerateKey types.Bool   `tfsdk:"encryption_generate_key"`
+	EncryptionPassphrase  types.String `tfsdk:"encryption_passphrase"`
+	EncryptionKey         types.String `tfsdk:"encryption_key"`
+
 	// Computed
 	MountPoint types.String `tfsdk:"mountpoint"`
 	Encrypted  types.Bool   `tfsdk:"encrypted"`
+	KeyFormat  types.String `tfsdk:"key_format"`
+	Locked     types.Bool   `tfsdk:"locked"`
 	Pool       types.String `tfsdk:"pool"`
 }
 
@@ -109,7 +121,33 @@ func (m *DatasetModel) apiPayload() map[string]any {
 	putInt(p, "copies", m.Copies)
 	putInt(p, "special_small_block_size", m.SpecialSmallBlockSize)
 	putInt(p, "refreservation", m.RefReservation)
+
+	// Encryption (create-only). The write-only passphrase/key are injected from
+	// req.Config by the resource's Create, not from the model (they are null in
+	// state); see encryptionOptions.
+	if !m.Encryption.IsNull() && !m.Encryption.IsUnknown() {
+		p["encryption"] = m.Encryption.ValueBool()
+	}
+	if !m.InheritEncryption.IsNull() && !m.InheritEncryption.IsUnknown() {
+		p["inherit_encryption"] = m.InheritEncryption.ValueBool()
+	}
+	if eo := m.encryptionOptions(); len(eo) > 0 {
+		p["encryption_options"] = eo
+	}
 	return p
+}
+
+// encryptionOptions builds the non-secret encryption_options from the model.
+// The write-only passphrase/key are added separately by Create from req.Config.
+func (m *DatasetModel) encryptionOptions() map[string]any {
+	eo := map[string]any{}
+	if !m.EncryptionAlgorithm.IsNull() && !m.EncryptionAlgorithm.IsUnknown() && m.EncryptionAlgorithm.ValueString() != "" {
+		eo["algorithm"] = m.EncryptionAlgorithm.ValueString()
+	}
+	if !m.EncryptionGenerateKey.IsNull() && !m.EncryptionGenerateKey.IsUnknown() {
+		eo["generate_key"] = m.EncryptionGenerateKey.ValueBool()
+	}
+	return eo
 }
 
 // updateAPIPayload converts the model to the pool.dataset.update JSON
@@ -123,6 +161,10 @@ func (m *DatasetModel) updateAPIPayload() map[string]any {
 	p := m.apiPayload()
 	delete(p, "name")
 	delete(p, "type")
+	// Encryption is create-only; pool.dataset.update rejects these.
+	delete(p, "encryption")
+	delete(p, "inherit_encryption")
+	delete(p, "encryption_options")
 	return p
 }
 
@@ -134,7 +176,15 @@ type apiResponse struct {
 	Type       string `json:"type"`
 	MountPoint string `json:"mountpoint"`
 	Encrypted  bool   `json:"encrypted"`
+	Locked     bool   `json:"locked"`
 	Pool       string `json:"pool"`
+
+	EncryptionAlgorithm struct {
+		Value *string `json:"value"`
+	} `json:"encryption_algorithm"`
+	KeyFormat struct {
+		Value *string `json:"value"`
+	} `json:"key_format"`
 
 	Compression struct {
 		Parsed string `json:"parsed"` // lowercase: "lz4"
@@ -182,4 +232,22 @@ type apiResponse struct {
 			Value string `json:"value"`
 		} `json:"comments"`
 	} `json:"user_properties"`
+}
+
+// injectEncryptionSecrets adds the write-only encryption_passphrase /
+// encryption_key from config into the create payload's encryption_options.
+func injectEncryptionSecrets(payload map[string]any, cfg *DatasetModel) {
+	eo, _ := payload["encryption_options"].(map[string]any)
+	if eo == nil {
+		eo = map[string]any{}
+	}
+	if !cfg.EncryptionPassphrase.IsNull() && !cfg.EncryptionPassphrase.IsUnknown() && cfg.EncryptionPassphrase.ValueString() != "" {
+		eo["passphrase"] = cfg.EncryptionPassphrase.ValueString()
+	}
+	if !cfg.EncryptionKey.IsNull() && !cfg.EncryptionKey.IsUnknown() && cfg.EncryptionKey.ValueString() != "" {
+		eo["key"] = cfg.EncryptionKey.ValueString()
+	}
+	if len(eo) > 0 {
+		payload["encryption_options"] = eo
+	}
 }

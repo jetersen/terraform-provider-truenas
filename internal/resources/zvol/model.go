@@ -26,12 +26,12 @@ type ZvolModel struct {
 	// Source-aware ZFS tuning properties applicable to volumes (coverage audit). Each
 	// reads back null when inherited/default rather than set LOCAL, so an
 	// inherited value is never carried into state and re-sent. See zfsprops.go.
-	Checksum              types.String `tfsdk:"checksum"`
-	ReadOnly              types.String `tfsdk:"readonly"`
-	Snapdev               types.String `tfsdk:"snapdev"`
-	Copies                types.Int64  `tfsdk:"copies"`
-	Reservation           types.Int64  `tfsdk:"reservation"`
-	RefReservation        types.Int64  `tfsdk:"refreservation"`
+	Checksum       types.String `tfsdk:"checksum"`
+	ReadOnly       types.String `tfsdk:"readonly"`
+	Snapdev        types.String `tfsdk:"snapdev"`
+	Copies         types.Int64  `tfsdk:"copies"`
+	Reservation    types.Int64  `tfsdk:"reservation"`
+	RefReservation types.Int64  `tfsdk:"refreservation"`
 }
 
 // zvolAPI matches the flat JSON structure returned by pool.dataset.get_instance for zvols.

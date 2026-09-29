@@ -13,6 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-testing/knownvalue"
 	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/hashicorp/terraform-plugin-testing/querycheck"
+	"github.com/hashicorp/terraform-plugin-testing/statecheck"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/hashicorp/terraform-plugin-testing/tfjsonpath"
 	"github.com/hashicorp/terraform-plugin-testing/tfversion"
@@ -245,7 +246,7 @@ func TestAccUser_fullSurface(t *testing.T) {
 				ResourceName:            "truenas_user.test",
 				ImportState:             true,
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"password", "group_create", "home_mode"},
+				ImportStateVerifyIgnore: []string{"password", "group_create", "home_mode", "groups"},
 			},
 		},
 	})
@@ -277,7 +278,7 @@ resource "truenas_user" "test" {
   home                 = truenas_dataset.home.mountpoint
   home_mode            = "0700"
   shell                = "/usr/bin/bash"
-  smb                  = false
+  smb                  = true
   group                = truenas_group.primary.id
   groups               = [truenas_group.aux.id]
   ssh_password_enabled = true
@@ -285,4 +286,29 @@ resource "truenas_user" "test" {
   locked               = false%s
 }
 `, dsName, gPrimary, gAux, username, webshare)
+}
+
+// TestAccUser_identityAfterUpdate verifies the int64-id identity pattern is set
+// after an in-place update (issue #20): truenas_user's Create/Update key the
+// identity on plan.ID.ValueInt64(). Gated to Terraform 1.12+.
+func TestAccUser_identityAfterUpdate(t *testing.T) {
+	username := acctest.RandName("tfaccuserident")
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { acctest.PreCheck(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		TerraformVersionChecks:   []tfversion.TerraformVersionCheck{tfversion.SkipBelow(tfversion.Version1_12_0)},
+		CheckDestroy:             testAccCheckUserDestroyed(username),
+		Steps: []resource.TestStep{
+			{
+				Config: acctest.ProviderConfig() + testAccUserConfig(username, "Ident One", "/usr/bin/bash"),
+			},
+			{
+				Config: acctest.ProviderConfig() + testAccUserConfig(username, "Ident Two", "/usr/bin/bash"),
+				ConfigStateChecks: []statecheck.StateCheck{
+					statecheck.ExpectIdentityValueMatchesState("truenas_user.test", tfjsonpath.New("id")),
+				},
+			},
+		},
+	})
 }

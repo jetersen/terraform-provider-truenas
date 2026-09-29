@@ -6,6 +6,44 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-09-29
+
+### Added
+- `truenas_dataset`: encryption support at creation (#18) — `encryption`,
+  `inherit_encryption`, `encryption_algorithm`, `encryption_generate_key`, and
+  the write-only `encryption_passphrase` / `encryption_key`. The encryption
+  state is read back through new computed `key_format` and `locked` attributes
+  (alongside the existing `encrypted`). All encryption inputs are create-only:
+  changing one recreates the dataset. Combined with the existing
+  `truenas_dataset_lock` / `truenas_dataset_unlock` actions, this covers
+  managing a dataset's encryption settings and lock state as code.
+  `encryption_algorithm` is version-gated: TrueNAS 27.0 removed it from the
+  create API (the algorithm is fixed server-side), so it is not sent there and
+  is read back from the computed value. Verified live on 25.10.3.1, 26.0, and
+  27.0 (passphrase and generated-key datasets).
+
+### Fixed
+- **Resource identity after update**: 81 resources declared an identity schema
+  and set it on create/read/import but not on update, so any in-place update on
+  a Terraform version that enforces resource identity failed with "The Terraform
+  Provider unexpectedly returned no resource identity data after having no
+  errors in the resource update" and left the resource tainted. Every affected
+  resource's `Update` now sets its identity (mirroring its `Create`). A source
+  guard (`TestResourceIdentitySetInUpdate`) fails the build if a new
+  identity-bearing resource omits it, and a live regression test asserts the
+  identity matches state after an update. (#20)
+- `truenas_nfs_share`: a `networks` entry with host bits set (e.g.
+  `192.168.100.10/24`) failed with "Provider produced inconsistent result after
+  apply" because TrueNAS stores the network address (`192.168.100.0/24`). The
+  `networks` elements now compare by network address, so the configured form is
+  kept and the apply is consistent. (#13)
+- `truenas_user`: creating a user with `smb = true` failed with "Provider
+  produced inconsistent result after apply — .groups: new element … has
+  appeared" because TrueNAS auto-adds the `builtin_users` group. Server-managed
+  auxiliary groups the configuration did not request are now reconciled out of
+  `groups`, so the apply is consistent; a group the configuration lists
+  explicitly is still kept. (#14)
+
 ## [1.4.3] - 2026-09-29
 
 ### Fixed

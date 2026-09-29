@@ -120,8 +120,8 @@ func TestAttributeCoverage_Audit(t *testing.T) {
 // (a container registry, a vCenter/ESXi host, the TrueNAS Connect cloud). They
 // are excluded from the attribute-coverage requirement.
 var coverageSkip = map[string]bool{
-	"truenas_app_registry":     true, // app.registry.create validates creds against a live registry
-	"truenas_vmware":           true, // vmware.create validates against a live vCenter/ESXi
+	"truenas_app_registry":      true, // app.registry.create validates creds against a live registry
+	"truenas_vmware":            true, // vmware.create validates against a live vCenter/ESXi
 	"truenas_tn_connect_config": true, // tn_connect validates against the TrueNAS Connect cloud
 }
 

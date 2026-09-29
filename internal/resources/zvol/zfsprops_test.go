@@ -24,13 +24,13 @@ func sourced(value string, hasValue bool, parsed, source string) zfsSourced {
 
 func TestZvolApiPayload_ZFSProps(t *testing.T) {
 	m := &ZvolModel{
-		Name:                  types.StringValue("tank/v"),
-		VolSize:               types.Int64Value(1073741824),
-		Checksum:              types.StringValue("sha256"), // uppercased
-		ReadOnly:              types.StringValue("ON"),
-		Snapdev:               types.StringValue("VISIBLE"),
-		Copies:                types.Int64Value(2),
-		RefReservation:        types.Int64Value(1073741824),
+		Name:           types.StringValue("tank/v"),
+		VolSize:        types.Int64Value(1073741824),
+		Checksum:       types.StringValue("sha256"), // uppercased
+		ReadOnly:       types.StringValue("ON"),
+		Snapdev:        types.StringValue("VISIBLE"),
+		Copies:         types.Int64Value(2),
+		RefReservation: types.Int64Value(1073741824),
 	}
 	p := m.apiPayload()
 	if p["checksum"] != "SHA256" {

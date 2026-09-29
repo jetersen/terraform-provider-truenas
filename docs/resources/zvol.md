@@ -39,7 +39,6 @@ resource "truenas_zvol" "iso" {
 - `reservation` (Number) Reserved space in bytes (guaranteed to this volume including snapshots). Null (unset) inherits.
 - `snapdev` (String) Visibility of the volume's snapshot device nodes: VISIBLE or HIDDEN. Null inherits.
 - `sparse` (Boolean) Sparse provisioning (write-only; not returned by API).
-- `special_small_block_size` (Number) Threshold in bytes below which blocks are written to a pool's special allocation-class vdev; 0 disables it. Null (unset) inherits.
 - `sync` (String) Sync setting: standard, always, or disabled.
 - `volblocksize` (Number) Block size in bytes (512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072). Set at create time only.
 

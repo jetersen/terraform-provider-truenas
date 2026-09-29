@@ -34,7 +34,6 @@ Fetches a TrueNAS zvol by name.
 - `reservation` (Number)
 - `snapdev` (String)
 - `sparse` (Boolean)
-- `special_small_block_size` (Number)
 - `sync` (String)
 - `volblocksize` (Number)
 - `volsize` (Number)

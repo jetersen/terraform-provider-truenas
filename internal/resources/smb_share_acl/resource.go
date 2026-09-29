@@ -185,6 +185,7 @@ func (r *SMBShareACLResource) Update(ctx context.Context, req resource.UpdateReq
 	}
 
 	plan.ID = types.StringValue(idFor(plan.ShareName.ValueString()))
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, plan.ID.ValueString())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 

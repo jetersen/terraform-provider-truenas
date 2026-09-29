@@ -116,6 +116,28 @@ func responseToDataSourceModel(ctx context.Context, api *userAPI, m *UserDatasou
 	if grps == nil {
 		grps = []int64{}
 	}
+	// TrueNAS auto-adds server-managed auxiliary groups the configuration did not
+	// request — notably builtin_users when smb=true — which would otherwise
+	// surface as "Provider produced inconsistent result after apply". When the
+	// desired set is known (create/update/refresh), keep only the requested
+	// groups that actually applied, in the requested order; on import or a data
+	// source read (no desired set) keep what the API returns. A group the user
+	// explicitly lists is kept.
+	if !m.Groups.IsNull() && !m.Groups.IsUnknown() {
+		var desired []int64
+		diags.Append(m.Groups.ElementsAs(ctx, &desired, false)...)
+		have := make(map[int64]bool, len(grps))
+		for _, g := range grps {
+			have[g] = true
+		}
+		kept := make([]int64, 0, len(desired))
+		for _, g := range desired {
+			if have[g] {
+				kept = append(kept, g)
+			}
+		}
+		grps = kept
+	}
 	gl, d3 := types.ListValueFrom(ctx, types.Int64Type, grps)
 	diags.Append(d3...)
 	m.Groups = gl
@@ -246,6 +268,28 @@ func responseToModel(ctx context.Context, api *userAPI, m *UserModel) diag.Diagn
 	grps := api.Groups
 	if grps == nil {
 		grps = []int64{}
+	}
+	// TrueNAS auto-adds server-managed auxiliary groups the configuration did not
+	// request — notably builtin_users when smb=true — which would otherwise
+	// surface as "Provider produced inconsistent result after apply". When the
+	// desired set is known (create/update/refresh), keep only the requested
+	// groups that actually applied, in the requested order; on import or a data
+	// source read (no desired set) keep what the API returns. A group the user
+	// explicitly lists is kept.
+	if !m.Groups.IsNull() && !m.Groups.IsUnknown() {
+		var desired []int64
+		diags.Append(m.Groups.ElementsAs(ctx, &desired, false)...)
+		have := make(map[int64]bool, len(grps))
+		for _, g := range grps {
+			have[g] = true
+		}
+		kept := make([]int64, 0, len(desired))
+		for _, g := range desired {
+			if have[g] {
+				kept = append(kept, g)
+			}
+		}
+		grps = kept
 	}
 	gl, d3 := types.ListValueFrom(ctx, types.Int64Type, grps)
 	diags.Append(d3...)

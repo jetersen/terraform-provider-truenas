@@ -58,7 +58,28 @@ func (r *DatasetResource) Create(ctx context.Context, req resource.CreateRequest
 		return
 	}
 
-	_, err := r.client.Call(ctx, "pool.dataset.create", plan.apiPayload())
+	payload := plan.apiPayload()
+	// encryption_passphrase / encryption_key are write-only: read them from the
+	// config (they are null in the plan/state) and inject into encryption_options.
+	var cfg DatasetModel
+	resp.Diagnostics.Append(req.Config.Get(ctx, &cfg)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	injectEncryptionSecrets(payload, &cfg)
+	// TrueNAS 27.0 removed encryption_options.algorithm (the algorithm is fixed
+	// server-side); sending it there fails with "Extra inputs are not permitted".
+	// The algorithm still reads back via the computed encryption_algorithm.
+	if ok, verr := r.client.VersionAtLeast(ctx, 27, 0); verr == nil && ok {
+		if eo, isMap := payload["encryption_options"].(map[string]any); isMap {
+			delete(eo, "algorithm")
+			if len(eo) == 0 {
+				delete(payload, "encryption_options")
+			}
+		}
+	}
+
+	_, err := r.client.Call(ctx, "pool.dataset.create", payload)
 	if err != nil {
 		resp.Diagnostics.AddError("Create dataset failed", err.Error())
 		return
@@ -148,6 +169,7 @@ func (r *DatasetResource) Update(ctx context.Context, req resource.UpdateRequest
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, plan.ID.ValueString())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 
@@ -203,6 +225,20 @@ func (r *DatasetResource) responseToModel(api *apiResponse, m *DatasetModel) dia
 	m.Type = preserveCase(m.Type, api.Type)
 	m.MountPoint = types.StringValue(api.MountPoint)
 	m.Encrypted = types.BoolValue(api.Encrypted)
+	m.Encryption = types.BoolValue(api.Encrypted)
+	m.Locked = types.BoolValue(api.Locked)
+	if api.EncryptionAlgorithm.Value != nil && *api.EncryptionAlgorithm.Value != "" {
+		m.EncryptionAlgorithm = types.StringValue(*api.EncryptionAlgorithm.Value)
+	} else {
+		m.EncryptionAlgorithm = types.StringNull()
+	}
+	if api.KeyFormat.Value != nil && *api.KeyFormat.Value != "" {
+		m.KeyFormat = types.StringValue(*api.KeyFormat.Value)
+	} else {
+		m.KeyFormat = types.StringNull()
+	}
+	// inherit_encryption, encryption_generate_key, and the write-only
+	// passphrase/key are not returned by the API; keep the config/plan values.
 	m.Pool = types.StringValue(api.Pool)
 	m.Compression = preserveCase(m.Compression, api.Compression.Parsed)
 	m.AClType = preserveCase(m.AClType, api.AClType.Parsed)

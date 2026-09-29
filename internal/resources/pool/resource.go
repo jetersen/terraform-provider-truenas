@@ -308,6 +308,8 @@ func (r *PoolResource) Update(ctx context.Context, req resource.UpdateRequest, r
 		}
 	}
 
+	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, plan.ID.ValueInt64())...)
+
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 

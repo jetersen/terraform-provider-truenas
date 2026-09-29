@@ -53,6 +53,8 @@ resource "truenas_dataset" "media" {
 
 ### Optional
 
+> **NOTE**: [Write-only arguments](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments) are supported in Terraform 1.11 and later.
+
 - `aclmode` (String) ACL inheritance mode: PASSTHROUGH, RESTRICTED, or DISCARD. Null (unset) inherits from the parent.
 - `acltype` (String) ACL type: posix, nfsv4, or off. Case-insensitive.
 - `atime` (String) Update access time on read: ON or OFF. Null inherits.
@@ -61,7 +63,13 @@ resource "truenas_dataset" "media" {
 - `compression` (String) Compression algorithm. Case-insensitive: lz4, zstd, off, etc.
 - `copies` (Number) Number of copies of each block (1-3). Null (unset) inherits from the parent.
 - `dedup` (String) Deduplication (the ZFS `deduplication` property): ON, VERIFY, or OFF. Null inherits. Named `dedup` to match truenas_zvol.
+- `encryption` (Boolean) Enable ZFS encryption on this dataset at creation. Create-only: changing it recreates the dataset.
+- `encryption_algorithm` (String) Encryption algorithm, e.g. "AES-256-GCM". Create-only.
+- `encryption_generate_key` (Boolean) Automatically generate the encryption key (key-based encryption). Create-only.
+- `encryption_key` (String, Sensitive, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) 64-character hex key for key-based encryption. Write-only: never stored in state. Create-only.
+- `encryption_passphrase` (String, Sensitive, [Write-only](https://developer.hashicorp.com/terraform/language/resources/ephemeral#write-only-arguments)) Passphrase for passphrase-based encryption (minimum 8 characters). Write-only: never stored in state. Create-only.
 - `exec` (String) Allow executing files: ON or OFF. Null inherits.
+- `inherit_encryption` (Boolean) Inherit encryption settings from the parent dataset. Create-only.
 - `quota` (Number) Quota in bytes (0 = unlimited).
 - `readonly` (String) Mount read-only: ON or OFF. Null inherits.
 - `recordsize` (String) Suggested block size for files, e.g. "128K" or "1M". Null (unset) inherits from the parent. Use the ZFS form (uppercase suffix) to avoid drift.
@@ -79,6 +87,8 @@ resource "truenas_dataset" "media" {
 
 - `encrypted` (Boolean) Whether the dataset is encrypted.
 - `id` (String) Dataset name (used as Terraform ID).
+- `key_format` (String) Encryption key format: PASSPHRASE or HEX (null when not encrypted).
+- `locked` (Boolean) Whether the encrypted dataset is currently locked.
 - `mountpoint` (String) Dataset mountpoint path.
 - `pool` (String) Name of the pool containing this dataset.
 - `xattr` (String) ZFS extended-attribute storage mode: SA (system-attribute), ON/DIR (directory-based), or OFF. Read-only — TrueNAS does not expose xattr in the writable create/update API, so it is set at dataset creation or inherited and only surfaced here for reading and drift-awareness.
