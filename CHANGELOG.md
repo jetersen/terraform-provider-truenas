@@ -6,6 +6,47 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.5.2] - 2026-10-01
+
+### Fixed
+- `truenas_dataset`: an in-place update (e.g. changing `comments`) of a dataset
+  created with `share_type` failed — `pool.dataset.update` rejects the
+  create-only `share_type` field. It is no longer sent on update. (#25)
+- `truenas_dataset`: an in-place update of a dataset created with
+  `acltype = "posix"` could fail with an inconsistent-result error — resending
+  the create-only `acltype` made the server set `aclmode`/`aclinherit` to
+  `DISCARD`, changing an inherited value. `acltype` is no longer sent on
+  update. (#26)
+- `truenas_dataset`: updating a dataset in place no longer plans a replacement
+  of resources that consume its `mountpoint` (such as `truenas_filesystem_acl`)
+  — `mountpoint` and `pool` now keep their known values on update instead of
+  becoming "known after apply". (#27)
+- `truenas_app`: creating or updating an app no longer fails with "Provider
+  produced inconsistent result after apply" when the app is still deploying —
+  the provider now waits for the app to leave the transient `DEPLOYING` state
+  before reading it back. (#28)
+- `truenas_dataset`: importing an encrypted dataset and then setting
+  `inherit_encryption` / `encryption_generate_key` in configuration no longer
+  forces the dataset to be destroyed and recreated. (#29)
+- `truenas_vm_device`: after importing a device, a plan no longer shows a
+  spurious diff on `attributes` when the configuration already matches the
+  device's live attributes. (#30)
+- `truenas_snmp_config`: setting `loglevel` failed on TrueNAS 27.0 with
+  `[EINVAL] snmp_update.loglevel: Extra inputs are not permitted` — 27.0 removed
+  the field from `snmp.update`. It is no longer sent on 27.0+ (with a clear
+  error if it is configured there) and is read back as null when absent; it
+  continues to work on 25.10/26.0. Found by the full cross-version acceptance
+  run.
+
+### Added
+- Test coverage auditors guarding the update/import lifecycle: a lifecycle-phase
+  audit (every resource must exercise update and import), a create-vs-update
+  `accepts` audit (a create-only API field mapping to a writable attribute must
+  be `RequiresReplace` or stripped from the update payload), and an
+  import-then-reapply acceptance helper that asserts an imported resource plans
+  no changes. All six fixes above are covered by regression tests verified on
+  TrueNAS 25.10, 26.0, and 27.0.
+
 ## [1.5.1] - 2026-09-29
 
 ### Fixed

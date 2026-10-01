@@ -35,6 +35,9 @@ func resourceSchema() schema.Schema {
 				// scope the flag to, so the whole attribute is masked as the pragmatic fix.
 				Sensitive:   true,
 				Description: "JSON document of device attributes. Must include \"dtype\": DISK, NIC, CDROM, DISPLAY, PCI, RAW, or USB.",
+				PlanModifiers: []planmodifier.String{
+					keepAttributesIfConfigMatchesState{},
+				},
 			},
 			"order": schema.Int64Attribute{
 				Optional: true,

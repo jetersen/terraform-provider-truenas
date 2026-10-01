@@ -165,6 +165,15 @@ func (m *DatasetModel) updateAPIPayload() map[string]any {
 	delete(p, "encryption")
 	delete(p, "inherit_encryption")
 	delete(p, "encryption_options")
+	// share_type is write-only and not accepted by pool.dataset.update (it is
+	// RequiresReplace, so a change recreates the dataset). (#25)
+	delete(p, "share_type")
+	// acltype is RequiresReplace, so an update only ever resends the current
+	// value; resending it is not a no-op — pool.dataset.update also writes
+	// aclmode/aclinherit=DISCARD as local properties for POSIX/OFF acltype,
+	// turning inherited aclmode into a local value and breaking the first
+	// in-place update with an inconsistent-result error. (#26)
+	delete(p, "acltype")
 	return p
 }
 

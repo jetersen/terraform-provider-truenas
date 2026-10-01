@@ -74,7 +74,7 @@ func resourceSchema() schema.Schema {
 			},
 			"share_type": schema.StringAttribute{
 				Optional:    true,
-				Description: "Optimised share type: UNIX or WINDOWS (write-only, not returned by API).",
+				Description: "Optimised share-type preset applied at creation: GENERIC, SMB, MULTIPROTOCOL, NFS, or APPS (write-only, not returned by the API). Create-only.",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
 				},
@@ -179,7 +179,14 @@ func resourceSchema() schema.Schema {
 				},
 			},
 			"mountpoint": schema.StringAttribute{
-				Computed:    true,
+				Computed: true,
+				// Derived from name, which is RequiresReplace, so an in-place
+				// update cannot change it. Keep the known value instead of
+				// planning (known after apply), which would otherwise replace
+				// consumers that use it as a RequiresReplace path. (#27)
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 				Description: "Dataset mountpoint path.",
 			},
 			"encrypted": schema.BoolAttribute{
@@ -199,7 +206,7 @@ func resourceSchema() schema.Schema {
 				Optional:    true,
 				Description: "Inherit encryption settings from the parent dataset. Create-only.",
 				PlanModifiers: []planmodifier.Bool{
-					boolplanmodifier.RequiresReplace(),
+					replaceIfChangedFromKnown(),
 				},
 			},
 			"encryption_algorithm": schema.StringAttribute{
@@ -215,7 +222,7 @@ func resourceSchema() schema.Schema {
 				Optional:    true,
 				Description: "Automatically generate the encryption key (key-based encryption). Create-only.",
 				PlanModifiers: []planmodifier.Bool{
-					boolplanmodifier.RequiresReplace(),
+					replaceIfChangedFromKnown(),
 				},
 			},
 			"encryption_passphrase": schema.StringAttribute{
@@ -239,7 +246,12 @@ func resourceSchema() schema.Schema {
 				Description: "Whether the encrypted dataset is currently locked.",
 			},
 			"pool": schema.StringAttribute{
-				Computed:    true,
+				Computed: true,
+				// Derived from name (RequiresReplace); keep the known value on
+				// update rather than planning (known after apply). (#27)
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 				Description: "Name of the pool containing this dataset.",
 			},
 		},
