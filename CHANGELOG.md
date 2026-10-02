@@ -6,6 +6,20 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.5.3] - 2026-10-02
+
+### Fixed
+- `truenas_dataset`: an existing dataset that inherits its encryption from the
+  parent now reports `inherit_encryption` correctly on read (reconciled from the
+  dataset's encryption root), so it round-trips and adding `inherit_encryption`
+  to configuration no longer plans a spurious in-place update. (#32)
+- `truenas_dataset`: setting `encryption` together with `inherit_encryption =
+  true` is now rejected at plan time with a clear message, instead of failing
+  during apply with "Provider produced inconsistent result after apply" — with
+  inheritance the parent determines encryption, so an explicit `encryption`
+  value is ambiguous. Remove `encryption`, or set `inherit_encryption = false`
+  to manage encryption on the dataset. (#31)
+
 ## [1.5.2] - 2026-10-01
 
 ### Fixed
