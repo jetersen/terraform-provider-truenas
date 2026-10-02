@@ -185,7 +185,7 @@ resource "truenas_dataset" "enc" {
 				ResourceName:            "truenas_dataset.enc",
 				ImportState:             true,
 				ImportStateVerify:       true,
-				ImportStateVerifyIgnore: []string{"encryption_passphrase", "encryption_key", "inherit_encryption", "encryption_generate_key"},
+				ImportStateVerifyIgnore: []string{"encryption_passphrase", "encryption_key", "encryption_generate_key"},
 			},
 		},
 	})
@@ -225,7 +225,7 @@ resource "truenas_dataset" "enckey" {
 					resource.TestCheckResourceAttr("truenas_dataset.enckey", "locked", "false"),
 				),
 			},
-		}, acctest.ImportReapplyNoop("truenas_dataset.enckey", config, "inherit_encryption", "encryption_generate_key")...),
+		}, acctest.ImportReapplyNoop("truenas_dataset.enckey", config, "encryption_generate_key")...),
 	})
 }
 
