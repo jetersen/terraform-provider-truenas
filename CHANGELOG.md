@@ -6,6 +6,18 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [1.5.4] - 2026-10-03
+
+### Changed
+- `truenas_app`: `values` is now reconciled from the live app configuration on
+  read, so configuration drift — a change made in the UI or via the API to a
+  value you manage — is detected on the next plan. It was previously write-only
+  and such drift was invisible. The live config is projected onto the keys you
+  set: chart defaults you did not set and server-managed `ix_*` keys are not
+  reported as drift. Note: a deployed app whose config has drifted from your
+  Terraform configuration will show that drift on the first plan after
+  upgrading. `custom_compose_config_string` (custom apps) remains write-only. (#33)
+
 ## [1.5.3] - 2026-10-02
 
 ### Fixed

@@ -17,7 +17,6 @@ var coverageRatchet = map[string]bool{
 	"truenas_app.custom_app":                           true,
 	"truenas_app.custom_compose_config_string":         true,
 	"truenas_app.train":                                true,
-	"truenas_app.values":                               true,
 	"truenas_app.version":                              true,
 	"truenas_boot_environment.activated":               true,
 	"truenas_cloud_backup.absolute_paths":              true,

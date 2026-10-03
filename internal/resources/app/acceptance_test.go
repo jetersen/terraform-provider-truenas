@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/plancheck"
 	"github.com/hashicorp/terraform-plugin-testing/terraform"
 	"github.com/truenas/terraform-provider-truenas/internal/acctest"
 )
@@ -108,4 +109,60 @@ func testAccCheckAppDestroyed(name string) resource.TestCheckFunc {
 		}
 		return nil
 	}
+}
+
+func testAccAppValuesConfig(name, tz string) string {
+	return acctest.ProviderConfig() + fmt.Sprintf(`
+resource "truenas_app" "test" {
+  name        = %q
+  catalog_app = "syncthing"
+  running     = true
+  values      = jsonencode({ TZ = %q })
+}
+`, name, tz)
+}
+
+// TestAccApp_valuesDriftDetection guards GH #33: `values` is reconciled from the
+// live config on read, projected onto the keys the user set, so drift in a
+// user-set key is detected — while chart defaults and server-managed ix_* keys
+// do NOT show as drift. Gated behind TRUENAS_APPS=1 (installs a real app).
+func TestAccApp_valuesDriftDetection(t *testing.T) {
+	name := acctest.RandName("tf-acc-appdrift")
+	cfg := testAccAppValuesConfig(name, "Etc/UTC")
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { acctest.AppsCheck(t) },
+		ProtoV6ProviderFactories: acctest.ProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckAppDestroyed(name),
+		Steps: []resource.TestStep{
+			{
+				Config: cfg,
+				Check:  resource.TestCheckResourceAttrSet("truenas_app.test", "values"),
+			},
+			// No out-of-band change: the plan must be empty. This is the key
+			// guard that chart defaults and ix_* keys are not reported as drift.
+			{
+				Config: cfg,
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{plancheck.ExpectEmptyPlan()},
+				},
+			},
+			// Change a user-set key out of band, then re-plan the same config:
+			// the drift must be detected as an in-place update back to Etc/UTC.
+			{
+				PreConfig: func() {
+					if _, err := acctest.Client().CallJob(context.Background(), "app.update", name,
+						map[string]any{"values": map[string]any{"TZ": "America/New_York"}}); err != nil {
+						t.Fatalf("out-of-band app.update failed: %v", err)
+					}
+				},
+				Config: cfg,
+				ConfigPlanChecks: resource.ConfigPlanChecks{
+					PreApply: []plancheck.PlanCheck{
+						plancheck.ExpectResourceAction("truenas_app.test", plancheck.ResourceActionUpdate),
+					},
+				},
+			},
+		},
+	})
 }

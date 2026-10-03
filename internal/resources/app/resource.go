@@ -11,6 +11,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/truenas/terraform-provider-truenas/internal/client"
 	"github.com/truenas/terraform-provider-truenas/internal/listing"
 )
@@ -47,6 +48,21 @@ func (r *AppResource) Configure(_ context.Context, req resource.ConfigureRequest
 		return
 	}
 	r.client = c
+}
+
+// getConfig fetches the live, fully-resolved app configuration via app.config.
+// It is the merged result (user values + chart defaults + server-managed ix_*),
+// decoded as a generic object for projection onto the user's key shape.
+func (r *AppResource) getConfig(ctx context.Context, name string) (map[string]any, error) {
+	raw, err := r.client.CallRead(ctx, "app.config", name)
+	if err != nil {
+		return nil, err
+	}
+	var cfg map[string]any
+	if err := json.Unmarshal(raw, &cfg); err != nil {
+		return nil, err
+	}
+	return cfg, nil
 }
 
 // getInstance fetches a single app by name via app.get_instance (sync call).
@@ -168,10 +184,19 @@ func (r *AppResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 		return
 	}
 
-	// Do NOT overwrite Values/ComposeYAML/CatalogApp from the API response:
-	// the API never echoes these back, so we must preserve whatever is
-	// already in state.
+	// ComposeYAML/CatalogApp are not echoed back by the API; responseToModel
+	// preserves them. Values IS reconciled below for drift detection.
 	responseToModel(api, &state)
+
+	// Reconcile `values` from the live config, projected onto the keys the user
+	// set, so drift in those keys is detected without chart defaults / ix_*
+	// showing as noise (#33). Only when the user manages values (non-empty) and
+	// this is not a custom (compose-based) app.
+	if !state.Values.IsNull() && state.Values.ValueString() != "" && !state.CustomApp.ValueBool() {
+		if cfg, err := r.getConfig(ctx, state.Name.ValueString()); err == nil {
+			state.Values = types.StringValue(projectConfigOntoUserShape(state.Values.ValueString(), cfg))
+		}
+	}
 	resp.Diagnostics.Append(listing.SetIdentity(ctx, resp.Identity, state.ID.ValueString())...)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &state)...)
 }

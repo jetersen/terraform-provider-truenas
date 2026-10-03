@@ -42,8 +42,11 @@ func resourceSchema() schema.Schema {
 				Description:   "App version to install (default \"latest\").",
 			},
 			"values": schema.StringAttribute{
-				Optional:    true,
-				Description: "JSON document of app configuration values (write-only; not read back).",
+				Optional: true,
+				Description: "JSON document of app configuration values. On read it is reconciled " +
+					"from the live app config, projected onto the keys you set, so configuration drift " +
+					"in those keys (e.g. a change made in the UI) is detected. Chart defaults you did not " +
+					"set and server-managed ix_* keys are not reported as drift.",
 			},
 			"custom_app": schema.BoolAttribute{
 				Optional:      true,
